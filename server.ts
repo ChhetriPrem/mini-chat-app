@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import { WebSocketServer, WebSocket } from 'ws';
 import { GoogleGenAI } from '@google/genai';
 import { CURRENT_USER, MOCK_STREAMS, VIRTUAL_GIFTS, MOCK_REELS, MOCK_NOTIFICATIONS } from './src/mockData';
@@ -533,10 +534,18 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    const indexPath = path.join(distPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (_req, res) => {
+        res.sendFile(indexPath);
+      });
+    } else {
+      console.warn(`⚠️ Warning: ${indexPath} not found. Running in API-only / non-built mode.`);
+      app.get('*', (_req, res) => {
+        res.status(200).send('🚀 VibeLive Backend API & Realtime Server active.');
+      });
+    }
   }
 
   server.listen(PORT, '0.0.0.0', () => {
