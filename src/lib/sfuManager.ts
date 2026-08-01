@@ -38,6 +38,10 @@ class SFUMediaManager {
     this.listeners.forEach((cb) => cb(copy));
   }
 
+  public getLocalMediaStream(): MediaStream | null {
+    return this.localStream;
+  }
+
   /**
    * Acquire local camera and microphone stream
    */

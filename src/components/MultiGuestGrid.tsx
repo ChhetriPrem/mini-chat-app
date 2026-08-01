@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RoomGuest, User } from '../types';
-import { Mic, MicOff, Video, VideoOff, Plus, Volume2, ShieldAlert, UserX, VolumeX, Hand, X, Camera } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Plus, Volume2, ShieldAlert, UserX, VolumeX, Hand, X, Camera, Maximize2, Minimize2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { sfuManager } from '../lib/sfuManager';
 
 interface MultiGuestGridProps {
   guests: RoomGuest[];
@@ -46,83 +47,68 @@ const LocalMediaStreamTile: React.FC<{
   onSpeakingChange?: (isSpeaking: boolean) => void;
 }> = ({ isMicOn, isVideoOn, onSpeakingChange }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [hasWebcam, setHasWebcam] = useState(false);
 
   useEffect(() => {
-    let mediaStream: MediaStream | null = null;
     let audioContext: AudioContext | null = null;
     let animationFrameId: number | null = null;
 
-    async function setupStream() {
-      if (!isVideoOn && !isMicOn) return;
+    async function bindStream() {
+      let mediaStream = sfuManager.getLocalMediaStream();
+      if (!mediaStream && (isVideoOn || isMicOn)) {
+        mediaStream = await sfuManager.getLocalStream(isVideoOn, isMicOn);
+      }
 
-      try {
-        if (navigator.mediaDevices?.getUserMedia) {
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: isVideoOn,
-            audio: isMicOn,
-          });
+      if (videoRef.current && mediaStream) {
+        videoRef.current.srcObject = mediaStream;
+      }
 
-          if (isVideoOn && videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-            setHasWebcam(true);
-          }
+      if (mediaStream && isMicOn && onSpeakingChange) {
+        const audioTracks = mediaStream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          try {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            audioContext = new AudioCtx();
+            const source = audioContext.createMediaStreamSource(mediaStream);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
 
-          if (isMicOn && onSpeakingChange) {
-            const audioTracks = mediaStream.getAudioTracks();
-            if (audioTracks.length > 0) {
-              const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-              audioContext = new AudioCtx();
-              const source = audioContext.createMediaStreamSource(mediaStream);
-              const analyser = audioContext.createAnalyser();
-              analyser.fftSize = 256;
-              source.connect(analyser);
-
-              const dataArray = new Uint8Array(analyser.frequencyBinCount);
-              const checkVolume = () => {
-                analyser.getByteFrequencyData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < dataArray.length; i++) {
-                  sum += dataArray[i];
-                }
-                const average = sum / dataArray.length;
-                onSpeakingChange(average > 18);
-                animationFrameId = requestAnimationFrame(checkVolume);
-              };
-              checkVolume();
-            }
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            const checkVolume = () => {
+              analyser.getByteFrequencyData(dataArray);
+              let sum = 0;
+              for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+              }
+              const average = sum / dataArray.length;
+              onSpeakingChange(average > 18);
+              animationFrameId = requestAnimationFrame(checkVolume);
+            };
+            checkVolume();
+          } catch (e) {
+            console.warn('Audio analyzer error:', e);
           }
         }
-      } catch (err) {
-        console.warn('Local media stream access note:', err);
-        setHasWebcam(false);
       }
     }
 
-    setupStream();
+    bindStream();
 
     return () => {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
       if (audioContext) audioContext.close();
-      if (mediaStream) {
-        mediaStream.getTracks().forEach((track) => track.stop());
-      }
     };
   }, [isVideoOn, isMicOn, onSpeakingChange]);
 
-  if (isVideoOn && hasWebcam) {
-    return (
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="absolute inset-0 w-full h-full object-cover rounded-2xl"
-      />
-    );
-  }
-
-  return null;
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted
+      className="absolute inset-0 w-full h-full object-cover rounded-2xl z-0"
+    />
+  );
 };
 
 export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
@@ -143,6 +129,7 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
   const [activeSlotMenu, setActiveSlotMenu] = useState<number | null>(null);
   const [selectedSeatChoice, setSelectedSeatChoice] = useState<number | null>(null);
   const [localSpeakingState, setLocalSpeakingState] = useState<Record<number, boolean>>({});
+  const [spotlightTarget, setSpotlightTarget] = useState<{ guest: RoomGuest; isLocal: boolean; stream?: MediaStream } | null>(null);
 
   const handleSeatClick = (seatNum: number) => {
     const existingGuest = guests.find((g) => g.seatNumber === seatNum);
@@ -234,11 +221,29 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
 
               {/* OVERLAY: Only shows text / controls when hovered over */}
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-between p-2.5 bg-gradient-to-t from-black/80 via-black/30 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
-                {/* Header: Slot # & Leave Stage Button */}
+                {/* Header: Slot #, Fullscreen Maximize & Leave Stage Button */}
                 <div className="w-full flex items-center justify-between">
-                  <span className="px-1.5 py-0.5 bg-black/80 backdrop-blur-md rounded text-[9px] font-black text-indigo-300 border border-white/15 shadow">
-                    Slot #{seatNum}
-                  </span>
+                  <div className="flex items-center space-x-1">
+                    <span className="px-1.5 py-0.5 bg-black/80 backdrop-blur-md rounded text-[9px] font-black text-indigo-300 border border-white/15 shadow">
+                      Slot #{seatNum}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const localStream = sfuManager.getLocalMediaStream() || undefined;
+                        const remoteStream = remoteMediaStreams.get(guest.user.id)?.stream;
+                        setSpotlightTarget({
+                          guest,
+                          isLocal: isMySeat,
+                          stream: isMySeat ? localStream : remoteStream,
+                        });
+                      }}
+                      className="p-1 bg-black/80 hover:bg-black text-white rounded-md border border-white/20 shadow transition-transform hover:scale-110 flex items-center space-x-1"
+                      title="Expand Fullscreen / Spotlight"
+                    >
+                      <Maximize2 className="w-3 h-3 text-indigo-300" />
+                    </button>
+                  </div>
 
                   {isMySeat && (
                     <button
@@ -407,6 +412,109 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
               className="text-xs font-bold text-slate-400 hover:text-white pt-2 block mx-auto"
             >
               Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen / Spotlight Stream Modal */}
+      {spotlightTarget && (
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-between p-4 sm:p-6 animate-in fade-in duration-200">
+          {/* Fullscreen Header */}
+          <div className="w-full max-w-5xl flex items-center justify-between bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 shadow-2xl">
+            <div className="flex items-center space-x-3">
+              <img
+                src={spotlightTarget.guest.user.avatar}
+                alt={spotlightTarget.guest.user.name}
+                className="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-500 shadow"
+              />
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-black text-white text-base">{spotlightTarget.guest.user.name}</span>
+                  <span className="text-[10px] font-black px-2 py-0.5 bg-indigo-600 rounded-full text-white shadow">
+                    Slot #{spotlightTarget.guest.seatNumber}
+                  </span>
+                </div>
+                <span className="text-xs text-indigo-300 font-medium">
+                  {spotlightTarget.isLocal ? 'Your Live Webcam Feed' : 'Stage Guest Live Stream'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setSpotlightTarget(null)}
+              className="p-2 bg-white/15 hover:bg-white/25 text-white rounded-full transition-transform hover:scale-105 shadow"
+              title="Exit Fullscreen"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Fullscreen Video Content */}
+          <div className="relative w-full max-w-5xl flex-1 my-4 bg-slate-950 rounded-3xl border border-white/15 overflow-hidden flex items-center justify-center shadow-2xl">
+            {spotlightTarget.isLocal ? (
+              <LocalMediaStreamTile
+                isMicOn={spotlightTarget.guest.isMicOn && !spotlightTarget.guest.isMutedByHost}
+                isVideoOn={spotlightTarget.guest.isVideoOn}
+              />
+            ) : spotlightTarget.stream ? (
+              <RemoteMediaStreamTile
+                stream={spotlightTarget.stream}
+                isVideoOn={spotlightTarget.guest.isVideoOn}
+                isMicOn={spotlightTarget.guest.isMicOn && !spotlightTarget.guest.isMutedByHost}
+              />
+            ) : spotlightTarget.guest.isVideoOn ? (
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <Camera className="w-16 h-16 text-indigo-400/40 animate-pulse" />
+                <span className="text-sm text-indigo-300 font-semibold">Connecting High Quality Video Feed...</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <img
+                  src={spotlightTarget.guest.user.avatar}
+                  alt=""
+                  className="w-32 h-32 rounded-full object-cover ring-4 ring-indigo-500/50 shadow-2xl"
+                />
+                <span className="text-xl font-black text-white">{spotlightTarget.guest.user.name}</span>
+                <span className="text-xs text-slate-400 bg-black/60 px-3 py-1 rounded-full border border-white/10">
+                  Microphone Seat Active
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Fullscreen Footer Controls */}
+          <div className="w-full max-w-5xl flex items-center justify-center space-x-3 bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/15">
+            {spotlightTarget.isLocal && (
+              <>
+                <button
+                  onClick={() => onToggleMic(spotlightTarget.guest.seatNumber)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black shadow transition-all ${
+                    spotlightTarget.guest.isMicOn ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-red-600 hover:bg-red-500 text-white'
+                  }`}
+                >
+                  {spotlightTarget.guest.isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                  <span>{spotlightTarget.guest.isMicOn ? 'Mute Mic' : 'Unmute Mic'}</span>
+                </button>
+
+                <button
+                  onClick={() => onToggleVideo(spotlightTarget.guest.seatNumber)}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black shadow transition-all ${
+                    spotlightTarget.guest.isVideoOn ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                  }`}
+                >
+                  {spotlightTarget.guest.isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                  <span>{spotlightTarget.guest.isVideoOn ? 'Camera On' : 'Camera Off'}</span>
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => setSpotlightTarget(null)}
+              className="flex items-center space-x-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-xl text-xs font-black shadow transition-all"
+            >
+              <Minimize2 className="w-4 h-4" />
+              <span>Exit Fullscreen</span>
             </button>
           </div>
         </div>
