@@ -20,7 +20,14 @@ function getGeminiClient(): GoogleGenAI | null {
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
       try {
-        aiClient = new GoogleGenAI({ apiKey });
+        aiClient = new GoogleGenAI({
+          apiKey,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            }
+          }
+        });
       } catch (err) {
         console.warn('Failed to initialize Gemini AI client:', err);
       }
@@ -166,7 +173,7 @@ wss.on('connection', (ws: WebSocket) => {
             if (gemini) {
               try {
                 const response = await gemini.models.generateContent({
-                  model: 'gemini-2.5-flash',
+                  model: 'gemini-3.6-flash',
                   contents: `You are VibeBot, an enthusiastic live stream AI co-host on a popular video/voice app. Reply concisely (1-2 sentences max) to this viewer comment: "${prompt}"`,
                 });
                 const aiReply = response.text?.trim() || '🔥 Let\'s get this stream hype going!';
@@ -467,8 +474,13 @@ app.get('/api/streams', (req, res) => {
   const category = req.query.category as string;
   const country = req.query.country as string;
   const filter = req.query.filter as string; // 'hot', 'recommend'
+  const mode = req.query.mode as string; // 'solo', 'multi'
 
   let list = [...roomsStore];
+
+  if (mode) {
+    list = list.filter((r) => (r.mode || 'multi') === mode);
+  }
 
   if (category && category !== 'All') {
     list = list.filter((r) => r.category.toLowerCase() === category.toLowerCase() || r.type === category.toLowerCase());
@@ -489,12 +501,13 @@ app.get('/api/streams', (req, res) => {
 
 // Create Stream
 app.post('/api/streams', (req, res) => {
-  const { title, category, type, country, countryFlag, coverImage, tags } = req.body;
+  const { title, category, type, country, countryFlag, coverImage, tags, mode } = req.body;
 
   const newRoom: StreamRoom = {
     id: `room_${Date.now()}`,
     title: title || `${currentUserStore.name}'s Live Stream`,
     type: type || 'video',
+    mode: mode === 'solo' ? 'solo' : 'multi',
     category: category || 'Gaming',
     country: country || currentUserStore.country,
     countryFlag: countryFlag || currentUserStore.countryFlag,

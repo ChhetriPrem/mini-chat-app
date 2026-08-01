@@ -1,13 +1,19 @@
 import React from 'react';
-import { Home, Film, MessageSquare, User, Radio } from 'lucide-react';
+import { Home, Tv, MessageSquare, User, Radio } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: 'home' | 'reel' | 'live' | 'message' | 'profile';
   setActiveTab: (tab: 'home' | 'reel' | 'live' | 'message' | 'profile') => void;
   onGoLiveClick: () => void;
+  unreadMessagesCount?: number;
 }
 
-export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, onGoLiveClick }) => {
+export const BottomNav: React.FC<BottomNavProps> = ({
+  activeTab,
+  setActiveTab,
+  onGoLiveClick,
+  unreadMessagesCount = 0,
+}) => {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#050507]/95 backdrop-blur-xl border-t border-white/10 px-4 py-2 max-w-md mx-auto">
       <div className="flex items-center justify-between">
@@ -22,15 +28,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
           <span className="text-[10px] font-bold tracking-wide">Home</span>
         </button>
 
-        {/* Reel Tab */}
+        {/* Solo Live Feed Tab */}
         <button
           onClick={() => setActiveTab('reel')}
           className={`flex flex-col items-center justify-center space-y-1 transition-all ${
-            activeTab === 'reel' ? 'text-indigo-400 scale-105' : 'text-slate-400 hover:text-white'
+            activeTab === 'reel' ? 'text-pink-400 scale-105' : 'text-slate-400 hover:text-white'
           }`}
         >
-          <Film className="w-5 h-5" />
-          <span className="text-[10px] font-bold tracking-wide">Reel</span>
+          <Tv className="w-5 h-5" />
+          <span className="text-[10px] font-bold tracking-wide">Solo Live</span>
         </button>
 
         {/* Floating Action Button (Center Go Live / Voice Room Button) */}
@@ -53,9 +59,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
         >
           <MessageSquare className="w-5 h-5" />
           <span className="text-[10px] font-bold tracking-wide">Message</span>
-          <span className="absolute -top-1 right-1 bg-pink-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border border-[#050507]">
-            3
-          </span>
+          {unreadMessagesCount > 0 && (
+            <span className="absolute -top-1 right-1 bg-pink-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border border-[#050507]">
+              {unreadMessagesCount}
+            </span>
+          )}
         </button>
 
         {/* Profile Tab */}

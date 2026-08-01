@@ -158,14 +158,16 @@ const SeatTile = React.memo<SeatTileProps>(({
   onHostToggleMute,
   onKickGuest,
 }) => {
+  const [showTapOverlay, setShowTapOverlay] = useState(false);
+
   if (!guest) {
     return (
       <button
         onClick={() => handleSeatClick(seatNum)}
-        className="group relative flex flex-col items-center justify-center aspect-square rounded-2xl bg-white/[0.03] border border-dashed border-white/15 hover:border-indigo-500/60 hover:bg-indigo-600/10 transition-all p-1"
+        className="group relative flex flex-col items-center justify-center aspect-square rounded-2xl bg-white/[0.03] border border-dashed border-white/15 hover:border-indigo-500/60 hover:bg-indigo-600/10 transition-all p-1 active:scale-95"
       >
-        <div className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 group-hover:scale-110 transition-all">
-          <Plus className="w-3.5 h-3.5" />
+        <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 group-hover:scale-110 transition-all">
+          <Plus className="w-4 h-4" />
         </div>
         <span className="text-[9px] font-extrabold text-slate-400 mt-1">Slot #{seatNum}</span>
       </button>
@@ -174,7 +176,8 @@ const SeatTile = React.memo<SeatTileProps>(({
 
   return (
     <div
-      className={`relative group flex flex-col items-center justify-between col-span-2 row-span-2 aspect-square rounded-2xl border overflow-hidden transition-all duration-300 shadow-xl ${
+      onClick={() => !isMySeat && setShowTapOverlay((prev) => !prev)}
+      className={`relative group flex flex-col items-center justify-between col-span-2 row-span-2 aspect-square rounded-2xl border overflow-hidden transition-all duration-300 shadow-xl cursor-pointer ${
         isSpeakingNow
           ? 'bg-gradient-to-b from-indigo-950/90 to-purple-950/90 border-pink-500 ring-2 ring-pink-500/60 shadow-pink-500/40'
           : 'bg-slate-950 border-white/15'
@@ -204,8 +207,12 @@ const SeatTile = React.memo<SeatTileProps>(({
         </div>
       )}
 
-      {/* OVERLAY: Only shows text / controls when hovered over */}
-      <div className="absolute inset-0 z-10 flex flex-col items-center justify-between p-2.5 bg-gradient-to-t from-black/80 via-black/30 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
+      {/* OVERLAY: Always visible on local user seat, hoverable or tap-to-toggle on remote seats */}
+      <div
+        className={`absolute inset-0 z-10 flex flex-col items-center justify-between p-2.5 bg-gradient-to-t from-black/85 via-black/40 to-black/70 transition-opacity duration-200 pointer-events-auto ${
+          isMySeat || showTapOverlay ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}
+      >
         {/* Header: Slot #, Fullscreen Maximize & Leave Stage Button */}
         <div className="w-full flex items-center justify-between">
           <div className="flex items-center space-x-1">
@@ -218,21 +225,24 @@ const SeatTile = React.memo<SeatTileProps>(({
                 const localStream = sfuManager.getLocalMediaStream() || undefined;
                 onSpotlight(guest, isMySeat, isMySeat ? localStream : remoteStream);
               }}
-              className="p-1 bg-black/80 hover:bg-black text-white rounded-md border border-white/20 shadow transition-transform hover:scale-110 flex items-center space-x-1"
+              className="p-1.5 bg-black/80 hover:bg-black text-white rounded-md border border-white/20 shadow transition-transform hover:scale-110 flex items-center space-x-1 min-h-[32px] min-w-[32px] justify-center"
               title="Expand Fullscreen / Spotlight"
             >
-              <Maximize2 className="w-3 h-3 text-indigo-300" />
+              <Maximize2 className="w-3.5 h-3.5 text-indigo-300" />
             </button>
           </div>
 
           {isMySeat && (
             <button
-              onClick={() => onLeaveSeat(seatNum)}
-              className="p-1 bg-red-600 hover:bg-red-500 text-white rounded-full text-[9px] font-bold shadow-lg transition-transform hover:scale-110 flex items-center space-x-1 px-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLeaveSeat(seatNum);
+              }}
+              className="p-1.5 bg-red-600 hover:bg-red-500 text-white rounded-full text-[9px] font-bold shadow-lg transition-transform active:scale-95 flex items-center space-x-1 px-2.5 min-h-[32px]"
               title="Leave Stage Slot"
             >
-              <X className="w-3 h-3" />
-              <span className="text-[9px]">Leave</span>
+              <X className="w-3.5 h-3.5" />
+              <span className="text-[10px]">Leave</span>
             </button>
           )}
         </div>
@@ -263,7 +273,7 @@ const SeatTile = React.memo<SeatTileProps>(({
 
         {/* Footer: User Info & Controls */}
         <div className="w-full flex flex-col items-center space-y-1">
-          <div className="flex items-center space-x-1 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full border border-white/10">
+          <div className="flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full border border-white/10">
             <span className="text-[10px] font-extrabold text-white truncate max-w-[120px]">
               {guest.user.name}
             </span>
@@ -276,23 +286,29 @@ const SeatTile = React.memo<SeatTileProps>(({
           {isMySeat ? (
             <div className="flex items-center space-x-2 pt-0.5">
               <button
-                onClick={() => onToggleMic(seatNum)}
-                className={`p-1.5 rounded-full text-[9px] font-bold shadow-md transition-all ${
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleMic(seatNum);
+                }}
+                className={`p-2.5 rounded-full text-[9px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[36px] min-w-[36px] ${
                   guest.isMicOn && !guest.isMutedByHost ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-red-500 hover:bg-red-400 text-white'
                 }`}
                 title={guest.isMicOn ? 'Mute Mic' : 'Unmute Mic'}
               >
-                {guest.isMicOn && !guest.isMutedByHost ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+                {guest.isMicOn && !guest.isMutedByHost ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               </button>
 
               <button
-                onClick={() => onToggleVideo(seatNum)}
-                className={`p-1.5 rounded-full text-[9px] font-bold shadow-md transition-all ${
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleVideo(seatNum);
+                }}
+                className={`p-2.5 rounded-full text-[9px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[36px] min-w-[36px] ${
                   guest.isVideoOn ? 'bg-indigo-500 hover:bg-indigo-400 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                 }`}
                 title={guest.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'}
               >
-                {guest.isVideoOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+                {guest.isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
               </button>
             </div>
           ) : (

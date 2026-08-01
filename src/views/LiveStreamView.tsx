@@ -213,39 +213,41 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
           </div>
         </div>
 
-        {/* Stage Status & Request Bar */}
-        <div className="flex items-center justify-between bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10">
-          <div className="flex items-center space-x-2 text-[11px] font-bold">
-            <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-            <span className="text-slate-200">
-              Stage: <strong className="text-indigo-400">{guestSeats.length}/10 Slots</strong> Occupied
-            </span>
-          </div>
+        {/* Stage Status & Request Bar (Only shown for Multi-Guest Rooms) */}
+        {room.mode !== 'solo' && (
+          <div className="flex items-center justify-between bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10">
+            <div className="flex items-center space-x-2 text-[11px] font-bold">
+              <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              <span className="text-slate-200">
+                Stage: <strong className="text-indigo-400">{guestSeats.length}/10 Slots</strong> Occupied
+              </span>
+            </div>
 
-          <div className="flex items-center space-x-2">
-            {/* Toggle Stage Grid View */}
-            <button
-              onClick={() => setShowStageGrid(!showStageGrid)}
-              className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-extrabold text-slate-300 flex items-center space-x-1"
-            >
-              <span>{showStageGrid ? 'Hide Stage' : 'Show Stage'}</span>
-              {showStageGrid ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
+            <div className="flex items-center space-x-2">
+              {/* Toggle Stage Grid View */}
+              <button
+                onClick={() => setShowStageGrid(!showStageGrid)}
+                className="px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded-lg text-[10px] font-extrabold text-slate-300 flex items-center space-x-1"
+              >
+                <span>{showStageGrid ? 'Hide Stage' : 'Show Stage'}</span>
+                {showStageGrid ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
 
-            {/* Stage Queue / Request Button */}
-            <button
-              onClick={() => setIsStageQueueModalOpen(true)}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-black flex items-center space-x-1 transition-all ${
-                stageRequests.length > 0 && isHost
-                  ? 'bg-yellow-500 text-black animate-pulse shadow-lg'
-                  : 'bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/50'
-              }`}
-            >
-              <Hand className="w-3 h-3" />
-              <span>{isHost ? `Queue (${stageRequests.length})` : 'Request Slot'}</span>
-            </button>
+              {/* Stage Queue / Request Button */}
+              <button
+                onClick={() => setIsStageQueueModalOpen(true)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-black flex items-center space-x-1 transition-all ${
+                  stageRequests.length > 0 && isHost
+                    ? 'bg-yellow-500 text-black animate-pulse shadow-lg'
+                    : 'bg-indigo-600/30 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/50'
+                }`}
+              >
+                <Hand className="w-3 h-3" />
+                <span>{isHost ? `Queue (${stageRequests.length})` : 'Request Slot'}</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* MIDDLE SECTION (10 Stage Slots or Interactive Games Launcher) */}
@@ -255,8 +257,8 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
         {activeGame === 'trivia' && <TriviaGame />}
         {activeGame === 'rps' && <RockPaperScissorsGame />}
 
-        {/* 10 Dedicated Stage Seats Grid */}
-        {showStageGrid && !activeGame && (
+        {/* 10 Dedicated Stage Seats Grid (Multi-Guest Only) */}
+        {room.mode !== 'solo' && showStageGrid && !activeGame && (
           <MultiGuestGrid
             guests={guestSeats}
             host={room.host}

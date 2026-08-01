@@ -5,6 +5,7 @@ import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { HomeView } from './views/HomeView';
 import { LiveStreamView } from './views/LiveStreamView';
+import { LiveFeedView } from './views/LiveFeedView';
 import { ReelsView } from './views/ReelsView';
 import { MessagesView } from './views/MessagesView';
 import { ProfileView } from './views/ProfileView';
@@ -35,11 +36,12 @@ export function MainApp() {
   const [isReelGiftOpen, setIsReelGiftOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
-  const handleStartStream = (title: string, category: string, type: RoomType) => {
+  const handleStartStream = (title: string, category: string, type: RoomType, mode?: 'solo' | 'multi') => {
     const customRoom: StreamRoom = {
       id: `room_live_${Date.now()}`,
       title,
       type,
+      mode: mode || 'solo',
       category,
       country: 'India',
       countryFlag: '🇮🇳',
@@ -85,7 +87,10 @@ export function MainApp() {
         )}
 
         {activeTab === 'reel' && (
-          <ReelsView onOpenGiftDrawer={() => setIsReelGiftOpen(true)} />
+          <LiveFeedView
+            onSelectStream={(room) => setSelectedRoom(room)}
+            onOpenGiftDrawer={() => setIsReelGiftOpen(true)}
+          />
         )}
 
         {activeTab === 'message' && <MessagesView />}

@@ -57,6 +57,7 @@ export interface StreamRoom {
   isRecommended: boolean;
   durationSeconds: number;
   pinnedMessage?: string;
+  mode?: 'solo' | 'multi'; // solo = host-only broadcast, multi = stage/seats enabled
   guests: RoomGuest[];
   maxSeats?: number; // Default 10
   stageRequests?: StageRequest[];
