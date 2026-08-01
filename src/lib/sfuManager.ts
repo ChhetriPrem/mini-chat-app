@@ -15,6 +15,8 @@ class SFUMediaManager {
   private localStream: MediaStream | null = null;
   private peerConnections: Map<string, RTCPeerConnection> = new Map();
   private remoteStreams: Map<string, PeerMediaStream> = new Map();
+  private makingOffer: Map<string, boolean> = new Map();
+  private politeness: Map<string, boolean> = new Map();
   private listeners: Set<StreamCallback> = new Set();
   private socketSend: ((msg: any) => void) | null = null;
   private currentUserId: string = '';
@@ -129,6 +131,8 @@ class SFUMediaManager {
     // Close peer connections
     this.peerConnections.forEach((pc) => pc.close());
     this.peerConnections.clear();
+    this.makingOffer.clear();
+    this.politeness.clear();
 
     if (this.socketSend) {
       this.socketSend({
@@ -214,6 +218,23 @@ class SFUMediaManager {
       if (!pc) {
         pc = await this.createPeerConnection(fromUserId, seatNumber, false);
       }
+
+      const polite = this.politeness.get(fromUserId) ?? (this.currentUserId < fromUserId);
+      const offerCollision = (this.makingOffer.get(fromUserId) || false) || pc.signalingState !== 'stable';
+      const ignoreOffer = !polite && offerCollision;
+
+      if (ignoreOffer) {
+        return; // Impolite peer ignores incoming offer collision
+      }
+
+      if (offerCollision) {
+        try {
+          await pc.setLocalDescription({ type: 'rollback' } as any);
+        } catch (e) {
+          console.warn('Rollback notice:', e);
+        }
+      }
+
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const newAnswer = await pc.createAnswer();
       await pc.setLocalDescription(newAnswer);
@@ -242,6 +263,8 @@ class SFUMediaManager {
         pc.close();
         this.peerConnections.delete(fromUserId);
       }
+      this.makingOffer.delete(fromUserId);
+      this.politeness.delete(fromUserId);
       this.remoteStreams.delete(fromUserId);
       this.notifyListeners();
     }
@@ -258,6 +281,9 @@ class SFUMediaManager {
       ],
       iceCandidatePoolSize: 10,
     };
+
+    const isPolite = this.currentUserId < remoteUserId;
+    this.politeness.set(remoteUserId, isPolite);
 
     const pc = new RTCPeerConnection(config);
     this.peerConnections.set(remoteUserId, pc);
@@ -307,16 +333,23 @@ class SFUMediaManager {
     };
 
     if (isInitiator) {
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      if (this.socketSend) {
-        this.socketSend({
-          type: 'rtc-signal',
-          signalType: 'offer',
-          targetUserId: remoteUserId,
-          seatNumber: this.currentSeatNumber,
-          offer,
-        });
+      try {
+        this.makingOffer.set(remoteUserId, true);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        if (this.socketSend) {
+          this.socketSend({
+            type: 'rtc-signal',
+            signalType: 'offer',
+            targetUserId: remoteUserId,
+            seatNumber: this.currentSeatNumber,
+            offer,
+          });
+        }
+      } catch (err) {
+        console.warn('Offer error:', err);
+      } finally {
+        this.makingOffer.set(remoteUserId, false);
       }
     }
 

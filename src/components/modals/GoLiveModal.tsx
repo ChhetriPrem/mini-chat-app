@@ -14,7 +14,7 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({ isOpen, onClose, onSta
   const [title, setTitle] = useState(`${user.name}'s Live Stream ✨`);
   const [category, setCategory] = useState('Music');
   const [roomType, setRoomType] = useState<RoomType>('video');
-  const [streamMode, setStreamMode] = useState<'solo' | 'multi'>('solo');
+  const [streamMode, setStreamMode] = useState<'solo' | 'multi'>('multi');
 
   if (!isOpen) return null;
 

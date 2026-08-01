@@ -36,12 +36,35 @@ export function MainApp() {
   const [isReelGiftOpen, setIsReelGiftOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
-  const handleStartStream = (title: string, category: string, type: RoomType, mode?: 'solo' | 'multi') => {
-    const customRoom: StreamRoom = {
+  const handleStartStream = async (title: string, category: string, type: RoomType, mode?: 'solo' | 'multi') => {
+    try {
+      const res = await fetch('/api/streams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          category,
+          type,
+          mode: mode || 'multi',
+          country: 'India',
+          countryFlag: '🇮🇳',
+          tags: ['Live', category],
+        }),
+      });
+      if (res.ok) {
+        const newRoom: StreamRoom = await res.json();
+        setSelectedRoom(newRoom);
+        return;
+      }
+    } catch (err) {
+      console.error('Failed to create stream via API, using fallback:', err);
+    }
+
+    const fallbackRoom: StreamRoom = {
       id: `room_live_${Date.now()}`,
       title,
       type,
-      mode: mode || 'solo',
+      mode: mode || 'multi',
       category,
       country: 'India',
       countryFlag: '🇮🇳',
@@ -56,7 +79,7 @@ export function MainApp() {
       host: MOCK_STREAMS[0].host,
       guests: []
     };
-    setSelectedRoom(customRoom);
+    setSelectedRoom(fallbackRoom);
   };
 
   return (
