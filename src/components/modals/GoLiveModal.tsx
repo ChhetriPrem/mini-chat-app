@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Radio, Video, Mic, Sparkles, User, Users } from 'lucide-react';
+import { X, Radio, Video, Mic, Sparkles } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { RoomType } from '../../types';
 
@@ -14,13 +14,12 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({ isOpen, onClose, onSta
   const [title, setTitle] = useState(`${user.name}'s Live Stream ✨`);
   const [category, setCategory] = useState('Music');
   const [roomType, setRoomType] = useState<RoomType>('video');
-  const [streamMode, setStreamMode] = useState<'solo' | 'multi'>('multi');
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onStartStream(title, category, roomType, streamMode);
+    onStartStream(title, category, roomType, 'multi');
     onClose();
   };
 
@@ -53,44 +52,6 @@ export const GoLiveModal: React.FC<GoLiveModalProps> = ({ isOpen, onClose, onSta
               placeholder="Give your stream an attractive title..."
               className="w-full bg-black/50 border border-white/20 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-pink-500"
             />
-          </div>
-
-          {/* Stream Mode Selector */}
-          <div>
-            <label className="text-[11px] font-bold text-gray-300 mb-1 block">Broadcast Mode</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setStreamMode('solo')}
-                className={`p-3 rounded-xl border flex items-center space-x-2 text-xs font-bold transition-all ${
-                  streamMode === 'solo'
-                    ? 'bg-gradient-to-r from-pink-500/20 to-purple-500/20 border-pink-500 text-pink-300 shadow-md'
-                    : 'bg-white/5 border-white/10 text-gray-400'
-                }`}
-              >
-                <User className="w-4 h-4 text-pink-400" />
-                <div className="text-left">
-                  <div>Solo Live</div>
-                  <div className="text-[9px] font-normal text-gray-400">Host Broadcast</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStreamMode('multi')}
-                className={`p-3 rounded-xl border flex items-center space-x-2 text-xs font-bold transition-all ${
-                  streamMode === 'multi'
-                    ? 'bg-gradient-to-r from-pink-500/20 to-purple-500/20 border-pink-500 text-pink-300 shadow-md'
-                    : 'bg-white/5 border-white/10 text-gray-400'
-                }`}
-              >
-                <Users className="w-4 h-4 text-indigo-400" />
-                <div className="text-left">
-                  <div>Multi-Guest</div>
-                  <div className="text-[9px] font-normal text-gray-400">10 Stage Slots</div>
-                </div>
-              </button>
-            </div>
           </div>
 
           {/* Room Type Selector */}

@@ -46,7 +46,8 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
       onOpenAuth?.();
       return;
     }
-    takeSeat(seatNumber, slotType);
+    const finalType = room.type === 'audio' ? 'audio' : (slotType || 'video');
+    takeSeat(seatNumber, finalType);
   };
 
   const handleGuardedSendMessage = (content: string) => {
@@ -70,7 +71,8 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
       onOpenAuth?.();
       return;
     }
-    requestStageSlot(slotType);
+    const finalType = room.type === 'audio' ? 'audio' : slotType;
+    requestStageSlot(finalType);
   };
   const {
     joinRoom,
@@ -302,6 +304,7 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
             onHostToggleMute={hostToggleMute}
             onRequestSlot={handleGuardedRequestSlot}
             isHost={isHost}
+            isAudioRoom={room.type === 'audio'}
           />
         )}
       </div>
@@ -400,6 +403,7 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
           setIsStageQueueModalOpen(false);
         }}
         myRequestPending={myRequestPending}
+        isAudioRoom={room.type === 'audio'}
       />
 
       {/* Virtual Gift Drawer Sheet */}

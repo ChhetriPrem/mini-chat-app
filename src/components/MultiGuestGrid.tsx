@@ -16,6 +16,7 @@ interface MultiGuestGridProps {
   onHostToggleMute?: (seatNumber: number) => void;
   onRequestSlot?: (slotType: 'video' | 'audio') => void;
   isHost?: boolean;
+  isAudioRoom?: boolean;
 }
 
 const RemoteMediaStreamTile: React.FC<{
@@ -138,6 +139,7 @@ interface SeatTileProps {
   setActiveSlotMenu: React.Dispatch<React.SetStateAction<number | null>>;
   onHostToggleMute?: (seatNum: number) => void;
   onKickGuest?: (seatNum: number) => void;
+  isAudioRoom?: boolean;
 }
 
 const SeatTile = React.memo<SeatTileProps>(({
@@ -157,6 +159,7 @@ const SeatTile = React.memo<SeatTileProps>(({
   setActiveSlotMenu,
   onHostToggleMute,
   onKickGuest,
+  isAudioRoom = false,
 }) => {
   const [showTapOverlay, setShowTapOverlay] = useState(false);
 
@@ -298,18 +301,20 @@ const SeatTile = React.memo<SeatTileProps>(({
                 {guest.isMicOn && !guest.isMutedByHost ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               </button>
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleVideo(seatNum);
-                }}
-                className={`p-2.5 rounded-full text-[10px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[40px] min-w-[40px] ${
-                  guest.isVideoOn ? 'bg-indigo-500 hover:bg-indigo-400 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                }`}
-                title={guest.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'}
-              >
-                {guest.isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-              </button>
+              {!isAudioRoom && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleVideo(seatNum);
+                  }}
+                  className={`p-2.5 rounded-full text-[10px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[40px] min-w-[40px] ${
+                    guest.isVideoOn ? 'bg-indigo-500 hover:bg-indigo-400 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                  }`}
+                  title={guest.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'}
+                >
+                  {guest.isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex items-center space-x-1 pt-0.5">
@@ -386,6 +391,7 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
   onHostToggleMute,
   onRequestSlot,
   isHost = false,
+  isAudioRoom = false,
 }) => {
   const { user } = useAuth();
   const { remoteMediaStreams } = useSocket();
@@ -398,13 +404,17 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
   const handleSeatClick = useCallback((seatNum: number) => {
     const existingGuest = guests.find((g) => g.seatNumber === seatNum);
     if (!existingGuest) {
-      setSelectedSeatChoice(seatNum);
+      if (isAudioRoom) {
+        onTakeSeat(seatNum, 'audio');
+      } else {
+        setSelectedSeatChoice(seatNum);
+      }
     }
-  }, [guests]);
+  }, [guests, isAudioRoom, onTakeSeat]);
 
   const confirmTakeSeat = (slotType: 'video' | 'audio') => {
     if (selectedSeatChoice !== null) {
-      onTakeSeat(selectedSeatChoice, slotType);
+      onTakeSeat(selectedSeatChoice, isAudioRoom ? 'audio' : slotType);
       setSelectedSeatChoice(null);
     }
   };
@@ -461,6 +471,7 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
               setActiveSlotMenu={setActiveSlotMenu}
               onHostToggleMute={onHostToggleMute}
               onKickGuest={onKickGuest}
+              isAudioRoom={isAudioRoom}
             />
           );
         })}
@@ -583,15 +594,17 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
                   <span>{spotlightTarget.guest.isMicOn ? 'Mute Mic' : 'Unmute Mic'}</span>
                 </button>
 
-                <button
-                  onClick={() => onToggleVideo(spotlightTarget.guest.seatNumber)}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black shadow transition-all ${
-                    spotlightTarget.guest.isVideoOn ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
-                  }`}
-                >
-                  {spotlightTarget.guest.isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-                  <span>{spotlightTarget.guest.isVideoOn ? 'Camera On' : 'Camera Off'}</span>
-                </button>
+                {!isAudioRoom && (
+                  <button
+                    onClick={() => onToggleVideo(spotlightTarget.guest.seatNumber)}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black shadow transition-all ${
+                      spotlightTarget.guest.isVideoOn ? 'bg-indigo-600 hover:bg-indigo-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                    }`}
+                  >
+                    {spotlightTarget.guest.isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+                    <span>{spotlightTarget.guest.isVideoOn ? 'Camera On' : 'Camera Off'}</span>
+                  </button>
+                )}
               </>
             )}
 

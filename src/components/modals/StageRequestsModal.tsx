@@ -9,6 +9,7 @@ interface StageRequestsModalProps {
   isHost: boolean;
   onRequestSlot: (type: 'video' | 'audio') => void;
   myRequestPending: boolean;
+  isAudioRoom?: boolean;
 }
 
 export const StageRequestsModal: React.FC<StageRequestsModalProps> = ({
@@ -19,6 +20,7 @@ export const StageRequestsModal: React.FC<StageRequestsModalProps> = ({
   isHost,
   onRequestSlot,
   myRequestPending,
+  isAudioRoom = false,
 }) => {
   if (!isOpen) return null;
 
@@ -54,7 +56,9 @@ export const StageRequestsModal: React.FC<StageRequestsModalProps> = ({
         {!isHost && (
           <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center space-y-3">
             <p className="text-xs text-slate-300 font-medium">
-              Want to speak or turn on video on stage? Send a slot request to the host!
+              {isAudioRoom
+                ? 'Want to speak on stage? Send a voice slot request to the host!'
+                : 'Want to speak or turn on video on stage? Send a slot request to the host!'}
             </p>
             {myRequestPending ? (
               <div className="py-2.5 px-4 bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 font-bold text-xs rounded-xl flex items-center justify-center space-x-2 animate-pulse">
@@ -62,19 +66,25 @@ export const StageRequestsModal: React.FC<StageRequestsModalProps> = ({
                 <span>Request Pending Host Approval...</span>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => onRequestSlot('video')}
-                  className="py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-1.5"
-                >
-                  <Video className="w-4 h-4 text-indigo-200" />
-                  <span>Request Video Slot</span>
-                </button>
+              <div className={isAudioRoom ? 'flex justify-center' : 'grid grid-cols-2 gap-2'}>
+                {!isAudioRoom && (
+                  <button
+                    onClick={() => onRequestSlot('video')}
+                    className="py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-1.5"
+                  >
+                    <Video className="w-4 h-4 text-indigo-200" />
+                    <span>Request Video Slot</span>
+                  </button>
+                )}
                 <button
                   onClick={() => onRequestSlot('audio')}
-                  className="py-2.5 px-3 bg-white/10 hover:bg-white/15 border border-white/20 font-bold text-xs rounded-xl flex items-center justify-center space-x-1.5"
+                  className={`py-2.5 px-3 font-bold text-xs rounded-xl flex items-center justify-center space-x-1.5 ${
+                    isAudioRoom
+                      ? 'w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30'
+                      : 'bg-white/10 hover:bg-white/15 border border-white/20'
+                  }`}
                 >
-                  <Mic className="w-4 h-4 text-emerald-400" />
+                  <Mic className="w-4 h-4 text-emerald-300" />
                   <span>Request Voice Slot</span>
                 </button>
               </div>
