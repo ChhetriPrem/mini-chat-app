@@ -54,12 +54,19 @@ const LocalMediaStreamTile: React.FC<{
 
     async function bindStream() {
       let mediaStream = sfuManager.getLocalMediaStream();
-      if (!mediaStream && (isVideoOn || isMicOn)) {
+      const hasLiveVideo = mediaStream && mediaStream.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled);
+
+      if ((!mediaStream || (isVideoOn && !hasLiveVideo)) && (isVideoOn || isMicOn)) {
         mediaStream = await sfuManager.getLocalStream(isVideoOn, isMicOn);
       }
 
       if (videoRef.current && mediaStream) {
-        videoRef.current.srcObject = mediaStream;
+        if (videoRef.current.srcObject !== mediaStream) {
+          videoRef.current.srcObject = mediaStream;
+        }
+        if (isVideoOn) {
+          videoRef.current.play().catch(() => {});
+        }
       }
 
       if (mediaStream && isMicOn && onSpeakingChange) {
@@ -106,7 +113,7 @@ const LocalMediaStreamTile: React.FC<{
       autoPlay
       playsInline
       muted
-      className="absolute inset-0 w-full h-full object-cover rounded-2xl z-0"
+      className={`absolute inset-0 w-full h-full object-cover rounded-2xl z-0 ${isVideoOn ? 'block' : 'hidden'}`}
     />
   );
 };
