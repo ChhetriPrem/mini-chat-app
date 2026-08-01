@@ -374,37 +374,48 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  const contextValue = React.useMemo(() => ({
+    isConnected,
+    activeRoomId,
+    joinRoom,
+    leaveRoom,
+    sendChatMessage,
+    sendVirtualGift,
+    sendEmojiReaction,
+    takeSeat,
+    leaveSeat,
+    toggleMic,
+    toggleVideo,
+    kickGuest,
+    hostToggleMute,
+    requestStageSlot,
+    cancelStageRequest,
+    approveStageRequest,
+    sendDrawStroke,
+    clearCanvas,
+    chatMessages,
+    floatingGifts,
+    floatingEmojis,
+    systemAnnouncements,
+    currentViewerCount,
+    guestSeats,
+    stageRequests,
+    remoteMediaStreams,
+  }), [
+    isConnected,
+    activeRoomId,
+    chatMessages,
+    floatingGifts,
+    floatingEmojis,
+    systemAnnouncements,
+    currentViewerCount,
+    guestSeats,
+    stageRequests,
+    remoteMediaStreams,
+  ]);
+
   return (
-    <SocketContext.Provider
-      value={{
-        isConnected,
-        activeRoomId,
-        joinRoom,
-        leaveRoom,
-        sendChatMessage,
-        sendVirtualGift,
-        sendEmojiReaction,
-        takeSeat,
-        leaveSeat,
-        toggleMic,
-        toggleVideo,
-        kickGuest,
-        hostToggleMute,
-        requestStageSlot,
-        cancelStageRequest,
-        approveStageRequest,
-        sendDrawStroke,
-        clearCanvas,
-        chatMessages,
-        floatingGifts,
-        floatingEmojis,
-        systemAnnouncements,
-        currentViewerCount,
-        guestSeats,
-        stageRequests,
-        remoteMediaStreams,
-      }}
-    >
+    <SocketContext.Provider value={contextValue}>
       {children}
     </SocketContext.Provider>
   );

@@ -44,14 +44,17 @@ interface ClientConnection {
 }
 
 const activeClients = new Set<ClientConnection>();
+const roomClients = new Map<string, Set<ClientConnection>>();
 
 // Setup WebSocket Server
 const wss = new WebSocketServer({ server });
 
 function broadcastToRoom(roomId: string, messageObj: any, excludeWs?: WebSocket) {
+  const clients = roomClients.get(roomId);
+  if (!clients) return;
   const jsonString = JSON.stringify(messageObj);
-  for (const client of activeClients) {
-    if (client.roomId === roomId && client.ws.readyState === WebSocket.OPEN && client.ws !== excludeWs) {
+  for (const client of clients) {
+    if (client.ws.readyState === WebSocket.OPEN && client.ws !== excludeWs) {
       client.ws.send(jsonString);
     }
   }
@@ -71,9 +74,18 @@ wss.on('connection', (ws: WebSocket) => {
 
       switch (data.type) {
         case 'join-room': {
+          if (conn.roomId && roomClients.has(conn.roomId)) {
+            roomClients.get(conn.roomId)?.delete(conn);
+          }
+
           conn.roomId = data.roomId;
           conn.userId = data.user?.id || conn.userId;
           conn.userName = data.user?.name || conn.userName;
+
+          if (!roomClients.has(data.roomId)) {
+            roomClients.set(data.roomId, new Set());
+          }
+          roomClients.get(data.roomId)!.add(conn);
 
           // Find room and increment viewer count
           const room = roomsStore.find((r) => r.id === data.roomId);
@@ -98,6 +110,9 @@ wss.on('connection', (ws: WebSocket) => {
 
         case 'leave-room': {
           if (conn.roomId) {
+            if (roomClients.has(conn.roomId)) {
+              roomClients.get(conn.roomId)?.delete(conn);
+            }
             const room = roomsStore.find((r) => r.id === conn.roomId);
             if (room && room.viewerCount > 0) {
               room.viewerCount -= 1;
@@ -427,6 +442,9 @@ wss.on('connection', (ws: WebSocket) => {
   ws.on('close', () => {
     activeClients.delete(conn);
     if (conn.roomId) {
+      if (roomClients.has(conn.roomId)) {
+        roomClients.get(conn.roomId)?.delete(conn);
+      }
       const room = roomsStore.find((r) => r.id === conn.roomId);
       if (room && room.viewerCount > 0) {
         room.viewerCount -= 1;
