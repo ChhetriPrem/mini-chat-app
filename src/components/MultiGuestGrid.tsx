@@ -167,12 +167,12 @@ const SeatTile = React.memo<SeatTileProps>(({
     return (
       <button
         onClick={() => handleSeatClick(seatNum)}
-        className="group relative flex flex-col items-center justify-center aspect-square rounded-2xl bg-white/[0.03] border border-dashed border-white/15 hover:border-indigo-500/60 hover:bg-indigo-600/10 transition-all p-1 active:scale-95"
+        className="group relative flex flex-col items-center justify-center aspect-square rounded-2xl bg-white/[0.04] border border-dashed border-white/15 hover:border-indigo-400 hover:bg-indigo-600/10 transition-all p-1 active:scale-95"
       >
-        <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 group-hover:scale-110 transition-all">
-          <Plus className="w-4 h-4" />
+        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-indigo-300 transition-all">
+          <Plus className="w-3.5 h-3.5" />
         </div>
-        <span className="text-[9px] font-extrabold text-slate-400 mt-1">Slot #{seatNum}</span>
+        <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 mt-0.5">#{seatNum}</span>
       </button>
     );
   }
@@ -180,10 +180,10 @@ const SeatTile = React.memo<SeatTileProps>(({
   return (
     <div
       onClick={() => !isMySeat && setShowTapOverlay((prev) => !prev)}
-      className={`relative group flex flex-col items-center justify-between col-span-2 row-span-2 aspect-square rounded-2xl border overflow-hidden transition-all duration-300 shadow-xl cursor-pointer ${
+      className={`relative group flex flex-col items-center justify-between aspect-square rounded-2xl border overflow-hidden transition-all duration-300 shadow-md cursor-pointer ${
         isSpeakingNow
-          ? 'bg-gradient-to-b from-indigo-950/90 to-purple-950/90 border-pink-500 ring-2 ring-pink-500/60 shadow-pink-500/40'
-          : 'bg-slate-950 border-white/15'
+          ? 'bg-indigo-950/90 border-pink-500 ring-2 ring-pink-500/60 shadow-pink-500/30'
+          : 'bg-slate-950/90 border-white/15'
       }`}
     >
       {/* Webcam Video & Microphone Media Stream */}
@@ -201,147 +201,101 @@ const SeatTile = React.memo<SeatTileProps>(({
         />
       ) : guest.isVideoOn ? (
         <div className="absolute inset-0 z-0 bg-gradient-to-b from-indigo-950 to-slate-900 opacity-60 flex items-center justify-center">
-          <Camera className="w-8 h-8 text-indigo-400/30 animate-pulse" />
+          <Camera className="w-6 h-6 text-indigo-400/30 animate-pulse" />
           <div className="absolute inset-0 bg-black/30" />
         </div>
       ) : (
         <div className="absolute inset-0 z-0 flex items-center justify-center bg-indigo-950/40">
-          <img src={guest.user.avatar} alt="" className="w-16 h-16 rounded-full object-cover opacity-40 blur-sm scale-125" />
+          <img src={guest.user.avatar} alt="" className="w-10 h-10 rounded-full object-cover opacity-50 blur-xs" />
         </div>
       )}
 
-      {/* OVERLAY: Always visible on local user seat, hoverable or tap-to-toggle on remote seats */}
-      <div
-        className={`absolute inset-0 z-10 flex flex-col items-center justify-between p-2.5 bg-gradient-to-t from-black/85 via-black/40 to-black/70 transition-opacity duration-200 pointer-events-auto ${
-          isMySeat || showTapOverlay ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
-      >
-        {/* Header: Slot #, Fullscreen Maximize & Leave Stage Button */}
+      {/* OVERLAY: Always visible controls in compact format */}
+      <div className="relative z-10 w-full h-full flex flex-col items-center justify-between p-1 bg-gradient-to-t from-black/85 via-black/20 to-black/60 pointer-events-auto">
+        {/* Header: Slot #, Spotlight & Leave Stage Button */}
         <div className="w-full flex items-center justify-between">
-          <div className="flex items-center space-x-1">
-            <span className="px-1.5 py-0.5 bg-black/80 backdrop-blur-md rounded text-[9px] font-black text-indigo-300 border border-white/15 shadow">
-              Slot #{seatNum}
-            </span>
+          <span className="px-1 py-0.2 bg-black/70 rounded text-[8px] font-black text-indigo-300 border border-white/10">
+            #{seatNum}
+          </span>
+
+          {isMySeat ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onLeaveSeat(seatNum);
+              }}
+              className="p-1 bg-red-600 hover:bg-red-500 text-white rounded-full text-[8px] font-bold shadow transition-transform active:scale-95 flex items-center justify-center"
+              title="Leave Stage Seat"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          ) : (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 const localStream = sfuManager.getLocalMediaStream() || undefined;
                 onSpotlight(guest, isMySeat, isMySeat ? localStream : remoteStream);
               }}
-              className="p-1.5 bg-black/80 hover:bg-black text-white rounded-md border border-white/20 shadow transition-transform hover:scale-110 flex items-center space-x-1 min-h-[32px] min-w-[32px] justify-center"
-              title="Expand Fullscreen / Spotlight"
+              className="p-1 bg-black/60 hover:bg-black text-white rounded-md border border-white/20 shadow"
+              title="Spotlight"
             >
-              <Maximize2 className="w-3.5 h-3.5 text-indigo-300" />
-            </button>
-          </div>
-
-          {isMySeat && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onLeaveSeat(seatNum);
-              }}
-              className="p-2 bg-red-600 hover:bg-red-500 text-white rounded-full text-[10px] font-bold shadow-lg transition-transform active:scale-95 flex items-center space-x-1 px-3 min-h-[40px] min-w-[40px] justify-center"
-              title="Leave Stage Slot"
-            >
-              <X className="w-4 h-4" />
-              <span className="text-[10px] font-bold">Leave</span>
+              <Maximize2 className="w-2.5 h-2.5 text-indigo-300" />
             </button>
           )}
         </div>
 
-        {/* Center: Guest Avatar / Live Badge */}
-        <div className="my-auto flex flex-col items-center space-y-1">
-          {!guest.isVideoOn ? (
-            <div className="relative">
-              <img
-                src={guest.user.avatar}
-                alt={guest.user.name}
-                className={`w-12 h-12 rounded-full object-cover ring-2 ${
-                  isSpeakingNow ? 'ring-pink-400 scale-105 shadow-lg shadow-pink-500/50' : 'ring-indigo-500/60'
-                }`}
-              />
-              {isSpeakingNow && (
-                <span className="absolute -bottom-1 -right-1 p-1 bg-pink-500 text-white rounded-full text-[9px] shadow">
-                  <Volume2 className="w-3.5 h-3.5 animate-pulse" />
-                </span>
-              )}
-            </div>
-          ) : (
-            <span className="text-[10px] font-black px-2.5 py-1 bg-indigo-600/90 backdrop-blur-md rounded-full text-white shadow-lg border border-indigo-400/30">
-              LIVE STREAM
+        {/* Center: Guest Avatar & Speaking indicator */}
+        <div className="my-auto relative flex flex-col items-center">
+          <img
+            src={guest.user.avatar}
+            alt={guest.user.name}
+            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover ring-2 ${
+              isSpeakingNow ? 'ring-pink-400 scale-105 shadow-md shadow-pink-500/50' : 'ring-indigo-500/60'
+            }`}
+          />
+          {isSpeakingNow && (
+            <span className="absolute -bottom-1 -right-1 p-0.5 bg-pink-500 text-white rounded-full shadow">
+              <Volume2 className="w-2.5 h-2.5 animate-pulse" />
             </span>
           )}
         </div>
 
         {/* Footer: User Info & Controls */}
-        <div className="w-full flex flex-col items-center space-y-1">
-          <div className="flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10">
-            <span className="text-[10px] font-extrabold text-white truncate max-w-[120px]">
-              {guest.user.name}
-            </span>
-            {isSpeakingNow && (
-              <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-ping" />
-            )}
-          </div>
+        <div className="w-full flex items-center justify-between bg-black/70 px-1 py-0.5 rounded-full border border-white/10">
+          <span className="text-[8px] font-bold text-white truncate max-w-[42px]">
+            {guest.user.name}
+          </span>
 
-          {/* Controls for User on Stage */}
           {isMySeat ? (
-            <div className="flex items-center space-x-2 pt-0.5">
+            <div className="flex items-center space-x-1">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleMic(seatNum);
                 }}
-                className={`p-2.5 rounded-full text-[10px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[40px] min-w-[40px] ${
-                  guest.isMicOn && !guest.isMutedByHost ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-red-500 hover:bg-red-400 text-white'
+                className={`p-0.5 rounded-full text-white ${
+                  guest.isMicOn && !guest.isMutedByHost ? 'bg-emerald-500' : 'bg-red-500'
                 }`}
-                title={guest.isMicOn ? 'Mute Mic' : 'Unmute Mic'}
+                title={guest.isMicOn ? 'Mute' : 'Unmute'}
               >
-                {guest.isMicOn && !guest.isMutedByHost ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                {guest.isMicOn && !guest.isMutedByHost ? <Mic className="w-2.5 h-2.5" /> : <MicOff className="w-2.5 h-2.5" />}
               </button>
-
-              {!isAudioRoom && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleVideo(seatNum);
-                  }}
-                  className={`p-2.5 rounded-full text-[10px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[40px] min-w-[40px] ${
-                    guest.isVideoOn ? 'bg-indigo-500 hover:bg-indigo-400 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
-                  }`}
-                  title={guest.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'}
-                >
-                  {guest.isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
-                </button>
-              )}
             </div>
           ) : (
-            <div className="flex items-center space-x-1 pt-0.5">
-              {guest.isMutedByHost ? (
-                <span className="text-[8px] text-red-300 font-extrabold bg-red-950/90 border border-red-500/50 px-1.5 py-0.5 rounded">
-                  MUTED BY HOST
-                </span>
-              ) : guest.isMicOn ? (
-                <span className="flex items-center space-x-1 text-[8px] font-extrabold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-1.5 py-0.5 rounded">
-                  <Mic className="w-3 h-3" />
-                  <span>MIC ON</span>
-                </span>
-              ) : (
-                <span className="flex items-center space-x-1 text-[8px] font-extrabold text-red-400 bg-red-950/80 border border-red-500/40 px-1.5 py-0.5 rounded">
-                  <MicOff className="w-3 h-3" />
-                  <span>MIC OFF</span>
-                </span>
-              )}
-            </div>
+            <span className={guest.isMicOn && !guest.isMutedByHost ? 'text-emerald-400' : 'text-red-400'}>
+              {guest.isMicOn && !guest.isMutedByHost ? <Mic className="w-2.5 h-2.5" /> : <MicOff className="w-2.5 h-2.5" />}
+            </span>
           )}
         </div>
 
         {/* Host Gear Settings Icon */}
         {isHost && !isMySeat && (
           <button
-            onClick={() => setActiveSlotMenu(activeSlotMenu === seatNum ? null : seatNum)}
-            className="absolute top-2 right-2 z-20 p-1 bg-black/80 hover:bg-black text-white rounded-lg text-[10px] border border-white/20 shadow"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveSlotMenu(activeSlotMenu === seatNum ? null : seatNum);
+            }}
+            className="absolute top-1 right-1 z-20 p-0.5 bg-black/80 hover:bg-black text-white rounded text-[8px] border border-white/20 shadow"
             title="Host Moderation"
           >
             ⚙️
@@ -445,7 +399,7 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
       </div>
 
       {/* 10 Slots Grid (5 columns x 2 rows) */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 auto-rows-fr">
+      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
         {seats.map((seatNum) => {
           const guest = guests.find((g) => g.seatNumber === seatNum);
           const isMySeat = guest?.user.id === user.id;
