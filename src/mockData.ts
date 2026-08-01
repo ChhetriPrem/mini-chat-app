@@ -114,7 +114,7 @@ export const MOCK_STREAMS: StreamRoom[] = [
     id: 'room_solo_2',
     title: '✨ Daily Vlog Live: Chatting, Coffee & Vibes ☕',
     type: 'video',
-    mode: 'solo',
+    mode: 'multi',
     category: 'Music',
     country: 'USA',
     countryFlag: '🇺🇸',
