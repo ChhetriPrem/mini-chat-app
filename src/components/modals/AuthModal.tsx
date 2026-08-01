@@ -1,21 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
-  Sparkles,
-  UserCheck,
   Mail,
   Lock,
-  User,
   AtSign,
-  Check,
   LogOut,
-  ShieldCheck,
   Gift,
   KeyRound,
-  UserPlus
+  UserPlus,
+  AlertCircle,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { isSupabaseConfigured } from '../../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -32,11 +30,11 @@ const PRESET_AVATARS = [
 ];
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { user, loginUserWithPassword, signupUser, logout, loginGuest, registeredAccounts, updateUser } = useAuth();
-  const [tab, setTab] = useState<'login' | 'signup' | 'presets'>('login');
+  const { user, isAuthenticated, signIn, signUp, signOut } = useAuth();
+  const [tab, setTab] = useState<'login' | 'signup'>('login');
 
   // Login Form state
-  const [loginQuery, setLoginQuery] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,6 +49,53 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const [signupError, setSignupError] = useState('');
   const [signupSuccess, setSignupSuccess] = useState('');
 
+  // Inline handle validation state
+  const [handleCheckStatus, setHandleCheckStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  const [handleCheckMsg, setHandleCheckMsg] = useState('');
+
+  useEffect(() => {
+    if (!signupHandle.trim()) {
+      setHandleCheckStatus('idle');
+      setHandleCheckMsg('');
+      return;
+    }
+
+    const clean = signupHandle.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (clean.length < 3) {
+      setHandleCheckStatus('invalid');
+      setHandleCheckMsg('Handle must be at least 3 alphanumeric characters');
+      return;
+    }
+
+    setHandleCheckStatus('checking');
+    const timer = setTimeout(async () => {
+      if (isSupabaseConfigured() && supabase) {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('handle', clean)
+            .maybeSingle();
+
+          if (data) {
+            setHandleCheckStatus('taken');
+            setHandleCheckMsg(`@${clean} is already taken`);
+          } else {
+            setHandleCheckStatus('available');
+            setHandleCheckMsg(`@${clean} is available!`);
+          }
+        } catch (e) {
+          setHandleCheckStatus('available');
+        }
+      } else {
+        setHandleCheckStatus('available');
+        setHandleCheckMsg(`@${clean} is available!`);
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [signupHandle]);
+
   if (!isOpen) return null;
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -58,7 +103,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setLoginError('');
     setIsSubmitting(true);
 
-    const res = await loginUserWithPassword(loginQuery, loginPassword);
+    const res = await signIn(loginEmail, loginPassword);
     setIsSubmitting(false);
 
     if (res.success) {
@@ -70,11 +115,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (handleCheckStatus === 'taken') {
+      setSignupError('Please choose an available handle.');
+      return;
+    }
+
     setSignupError('');
     setSignupSuccess('');
     setIsSubmitting(true);
 
-    const res = await signupUser({
+    const res = await signUp({
       name: signupName,
       handle: signupHandle,
       email: signupEmail,
@@ -85,27 +135,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     setIsSubmitting(false);
 
     if (res.success) {
-      setSignupSuccess('Account created successfully! 10,000 Welcome Coins added! 🎉');
+      setSignupSuccess('Account created successfully! 5,000 Coins added! 🎉');
       setTimeout(() => {
         onClose();
-      }, 1000);
+      }, 1200);
     } else {
       setSignupError(res.error || 'Signup failed.');
     }
-  };
-
-  const handleSelectAccount = (acc: (typeof registeredAccounts)[0]) => {
-    updateUser({
-      id: acc.id,
-      name: acc.name,
-      handle: acc.handle,
-      avatar: acc.avatar,
-      level: acc.level,
-      coins: acc.coins,
-      diamonds: acc.diamonds,
-      bio: acc.bio,
-    });
-    onClose();
   };
 
   return (
@@ -129,21 +165,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <div>
               <p className="text-xs font-black text-white flex items-center space-x-1">
                 <span>{user.name}</span>
-                <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-500/30">Active</span>
+                {isAuthenticated ? (
+                  <span className="text-[10px] text-emerald-400 font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/30">Verified Auth</span>
+                ) : (
+                  <span className="text-[10px] text-amber-400 font-bold bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-500/30">Guest</span>
+                )}
               </p>
               <p className="text-[10px] text-slate-400">@{user.handle} • {user.coins.toLocaleString()} Coins</p>
             </div>
           </div>
-          <button
-            onClick={() => {
-              logout();
-            }}
-            className="p-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-xl border border-red-500/30 text-xs font-bold transition-all flex items-center space-x-1"
-            title="Log Out"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Logout</span>
-          </button>
+          {isAuthenticated && (
+            <button
+              onClick={async () => {
+                await signOut();
+              }}
+              className="p-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 rounded-xl border border-red-500/30 text-xs font-bold transition-all flex items-center space-x-1"
+              title="Log Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
+          )}
         </div>
 
         {/* Header Title */}
@@ -152,12 +194,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           <p className="text-xs text-slate-400">
             {isSupabaseConfigured()
               ? '☁️ Supabase Cloud Authentication Active'
-              : 'Sign in, register a new account, or switch personas instantly.'}
+              : 'Sign in or register a new creator account.'}
           </p>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="grid grid-cols-3 gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 text-xs font-bold">
+        <div className="grid grid-cols-2 gap-1 p-1 bg-white/5 rounded-2xl border border-white/10 text-xs font-bold">
           <button
             onClick={() => setTab('login')}
             className={`py-2 rounded-xl transition-all flex items-center justify-center space-x-1 ${
@@ -177,39 +219,30 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <UserPlus className="w-3.5 h-3.5" />
             <span>Sign Up</span>
           </button>
-
-          <button
-            onClick={() => setTab('presets')}
-            className={`py-2 rounded-xl transition-all flex items-center justify-center space-x-1 ${
-              tab === 'presets' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-pink-400" />
-            <span>Switch</span>
-          </button>
         </div>
 
         {/* TAB 1: LOG IN */}
         {tab === 'login' && (
           <form onSubmit={handleLoginSubmit} className="space-y-3 pt-1">
             {loginError && (
-              <div className="p-2.5 bg-red-950/80 border border-red-500/50 rounded-xl text-xs text-red-300 font-semibold">
-                ⚠️ {loginError}
+              <div className="p-2.5 bg-red-950/80 border border-red-500/50 rounded-xl text-xs text-red-300 font-semibold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{loginError}</span>
               </div>
             )}
 
             <div>
               <label className="text-[11px] font-bold text-slate-300 mb-1 flex items-center space-x-1">
-                <AtSign className="w-3 h-3 text-indigo-400" />
-                <span>Email or Username</span>
+                <Mail className="w-3 h-3 text-indigo-400" />
+                <span>Email Address</span>
               </label>
               <input
-                type="text"
+                type="email"
                 required
-                autoComplete="username"
-                value={loginQuery}
-                onChange={(e) => setLoginQuery(e.target.value)}
-                placeholder="maya@vibelive.app or maya_official"
+                autoComplete="email"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="you@example.com"
                 className="w-full bg-black/50 border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
             </div>
@@ -237,10 +270,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             >
               {isSubmitting ? 'Signing In...' : 'Sign In to VibeLive'}
             </button>
-
-            <p className="text-[10px] text-center text-slate-400 pt-1">
-              Test Account Credential: <code className="text-indigo-300 font-bold">maya@vibelive.app</code> / <code className="text-indigo-300 font-bold">password123</code>
-            </p>
           </form>
         )}
 
@@ -248,8 +277,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         {tab === 'signup' && (
           <form onSubmit={handleSignupSubmit} className="space-y-2.5 pt-1 max-h-[340px] overflow-y-auto pr-1">
             {signupError && (
-              <div className="p-2 bg-red-950/80 border border-red-500/50 rounded-xl text-xs text-red-300 font-semibold">
-                ⚠️ {signupError}
+              <div className="p-2 bg-red-950/80 border border-red-500/50 rounded-xl text-xs text-red-300 font-semibold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{signupError}</span>
               </div>
             )}
             {signupSuccess && (
@@ -261,7 +291,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <div className="p-2 bg-gradient-to-r from-indigo-950/80 to-pink-950/80 border border-indigo-500/30 rounded-xl flex items-center space-x-2">
               <Gift className="w-5 h-5 text-yellow-400 shrink-0" />
               <span className="text-[11px] font-bold text-indigo-200">
-                Create a new account now and get <strong className="text-yellow-300">10,000 Free Coins</strong> bonus!
+                Create a new account and get <strong className="text-yellow-300">5,000 Free Coins</strong> welcome bonus!
               </span>
             </div>
 
@@ -280,14 +310,36 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
               <div>
                 <label className="text-[10px] font-bold text-slate-300 mb-1 block">Handle / @Username</label>
-                <input
-                  type="text"
-                  required
-                  value={signupHandle}
-                  onChange={(e) => setSignupHandle(e.target.value)}
-                  placeholder="alex_rivers"
-                  className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={signupHandle}
+                    onChange={(e) => setSignupHandle(e.target.value)}
+                    placeholder="alex_rivers"
+                    className={`w-full bg-black/50 border rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none ${
+                      handleCheckStatus === 'taken' || handleCheckStatus === 'invalid'
+                        ? 'border-red-500'
+                        : handleCheckStatus === 'available'
+                        ? 'border-emerald-500'
+                        : 'border-white/15 focus:border-indigo-500'
+                    }`}
+                  />
+                  {handleCheckStatus === 'checking' && (
+                    <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin absolute right-2.5 top-2.5" />
+                  )}
+                  {handleCheckStatus === 'available' && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 absolute right-2.5 top-2.5" />
+                  )}
+                  {handleCheckStatus === 'taken' && (
+                    <AlertCircle className="w-3.5 h-3.5 text-red-400 absolute right-2.5 top-2.5" />
+                  )}
+                </div>
+                {handleCheckMsg && (
+                  <p className={`text-[9px] mt-0.5 ${handleCheckStatus === 'available' ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {handleCheckMsg}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -312,14 +364,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 autoComplete="new-password"
                 value={signupPassword}
                 onChange={(e) => setSignupPassword(e.target.value)}
-                placeholder="At least 4 characters"
+                placeholder="At least 6 characters"
                 className="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
             </div>
 
             {/* Avatar Selector */}
             <div>
-              <label className="text-[10px] font-bold text-slate-300 mb-1 block">Select Creator Avatar</label>
+              <label className="text-[10px] font-bold text-slate-300 mb-1 block">Select Avatar</label>
               <div className="flex items-center space-x-2 overflow-x-auto py-1">
                 {PRESET_AVATARS.map((url, idx) => (
                   <button
@@ -330,14 +382,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       selectedAvatar === url ? 'border-pink-500 scale-110 ring-2 ring-pink-500/50' : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
                   >
-                    <img src={url} className="w-9 h-9 rounded-full object-cover" />
+                    <img src={url} className="w-8 h-8 rounded-full object-cover" />
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <label className="text-[10px] font-bold text-slate-300 mb-1 block">Creator Bio (Optional)</label>
+              <label className="text-[10px] font-bold text-slate-300 mb-1 block">Bio (Optional)</label>
               <input
                 type="text"
                 value={signupBio}
@@ -349,64 +401,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 hover:opacity-90 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all mt-2"
+              disabled={isSubmitting || handleCheckStatus === 'taken'}
+              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 hover:opacity-90 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all mt-2"
             >
               {isSubmitting ? 'Registering...' : 'Create VibeLive Account'}
             </button>
           </form>
         )}
-
-        {/* TAB 3: QUICK SWITCH PERSONAS */}
-        {tab === 'presets' && (
-          <div className="space-y-2 pt-1 max-h-[300px] overflow-y-auto pr-1">
-            <p className="text-[11px] text-slate-400">
-              Select a persona to immediately switch users in this window for testing multi-guest video chat:
-            </p>
-
-            {registeredAccounts.map((acc) => {
-              const isCurrent = user.id === acc.id;
-              return (
-                <button
-                  key={acc.id}
-                  onClick={() => handleSelectAccount(acc)}
-                  className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
-                    isCurrent
-                      ? 'bg-gradient-to-r from-indigo-900/90 to-purple-900/90 border-indigo-500 ring-2 ring-indigo-500/50 shadow-md'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <img src={acc.avatar} alt={acc.name} className="w-10 h-10 rounded-full object-cover ring-2 ring-indigo-500/40" />
-                    <div>
-                      <h4 className="text-xs font-bold text-white flex items-center space-x-1">
-                        <span>{acc.name}</span>
-                        {isCurrent && <Check className="w-3.5 h-3.5 text-emerald-400 inline" />}
-                      </h4>
-                      <p className="text-[10px] text-slate-400">@{acc.handle} • Level {acc.level}</p>
-                    </div>
-                  </div>
-
-                  <span className="text-[10px] font-black px-2 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    Switch
-                  </span>
-                </button>
-              );
-            })}
-
-            <button
-              onClick={() => {
-                loginGuest();
-                onClose();
-              }}
-              className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 font-bold text-xs rounded-xl flex items-center justify-center space-x-2 transition-all mt-2"
-            >
-              <UserCheck className="w-4 h-4 text-emerald-400" />
-              <span>Generate Random Guest ID</span>
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
 };
+

@@ -39,7 +39,39 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
   onOpenWallet,
   onOpenAuth,
 }) => {
-  const { user, followingIds, toggleFollow } = useAuth();
+  const { user, isAuthenticated, followingIds, toggleFollow } = useAuth();
+
+  const handleGuardedTakeSeat = (seatNumber: number, slotType?: 'video' | 'audio') => {
+    if (!isAuthenticated) {
+      onOpenAuth?.();
+      return;
+    }
+    takeSeat(seatNumber, slotType);
+  };
+
+  const handleGuardedSendMessage = (content: string) => {
+    if (!isAuthenticated) {
+      onOpenAuth?.();
+      return;
+    }
+    sendChatMessage(content);
+  };
+
+  const handleGuardedSendGift = (gift: any, count: number) => {
+    if (!isAuthenticated) {
+      onOpenAuth?.();
+      return;
+    }
+    sendVirtualGift(gift, count);
+  };
+
+  const handleGuardedRequestSlot = (slotType: 'video' | 'audio') => {
+    if (!isAuthenticated) {
+      onOpenAuth?.();
+      return;
+    }
+    requestStageSlot(slotType);
+  };
   const {
     joinRoom,
     leaveRoom,
@@ -262,13 +294,13 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
           <MultiGuestGrid
             guests={guestSeats}
             host={room.host}
-            onTakeSeat={takeSeat}
+            onTakeSeat={handleGuardedTakeSeat}
             onLeaveSeat={leaveSeat}
             onToggleMic={toggleMic}
             onToggleVideo={toggleVideo}
             onKickGuest={kickGuest}
             onHostToggleMute={hostToggleMute}
-            onRequestSlot={requestStageSlot}
+            onRequestSlot={handleGuardedRequestSlot}
             isHost={isHost}
           />
         )}
@@ -281,7 +313,7 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
           <ChatOverlay
             messages={chatMessages}
             pinnedMessage={room.pinnedMessage}
-            onSendMessage={sendChatMessage}
+            onSendMessage={handleGuardedSendMessage}
             onSendEmojiReaction={sendEmojiReaction}
           />
         </div>
@@ -364,7 +396,7 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
         }}
         isHost={isHost}
         onRequestSlot={(slotType) => {
-          requestStageSlot(slotType);
+          handleGuardedRequestSlot(slotType);
           setIsStageQueueModalOpen(false);
         }}
         myRequestPending={myRequestPending}
@@ -375,7 +407,7 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
         isOpen={isGiftDrawerOpen}
         onClose={() => setIsGiftDrawerOpen(false)}
         onSendGift={(gift, count) => {
-          sendVirtualGift(gift, count);
+          handleGuardedSendGift(gift, count);
           setIsGiftDrawerOpen(false);
         }}
         onOpenWallet={onOpenWallet}

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { X, Trophy, Crown, Medal, Flame } from 'lucide-react';
-import { MOCK_STREAMS } from '../../mockData';
+import React, { useState, useEffect } from 'react';
+import { X, Trophy } from 'lucide-react';
+import { StreamRoom } from '../../types';
 
 interface LeaderboardModalProps {
   isOpen: boolean;
@@ -9,6 +9,18 @@ interface LeaderboardModalProps {
 
 export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onClose }) => {
   const [tab, setTab] = useState<'creators' | 'gifters'>('creators');
+  const [streams, setStreams] = useState<StreamRoom[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/streams')
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setStreams(data);
+        })
+        .catch((err) => console.error('Failed to load leaderboard streams:', err));
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -44,7 +56,7 @@ export const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ isOpen, onCl
         </div>
 
         <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-          {MOCK_STREAMS.map((s, idx) => (
+          {streams.map((s, idx) => (
             <div
               key={s.id}
               className="bg-white/5 border border-white/10 p-2.5 rounded-2xl flex items-center space-x-3 justify-between"

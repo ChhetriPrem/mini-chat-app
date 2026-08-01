@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { VIRTUAL_GIFTS } from '../mockData';
+import { VIRTUAL_GIFTS } from '../data/gifts';
 import { VirtualGift } from '../types';
 import { Coins, Plus, Send, X, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';

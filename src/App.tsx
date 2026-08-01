@@ -19,9 +19,11 @@ import { SearchModal } from './components/modals/SearchModal';
 import { AuthModal } from './components/modals/AuthModal';
 import { GiftDrawer } from './components/GiftDrawer';
 import { StreamRoom, RoomType } from './types';
-import { MOCK_STREAMS, VIRTUAL_GIFTS } from './mockData';
+import { VIRTUAL_GIFTS } from './data/gifts';
+import { useAuth } from './context/AuthContext';
 
 export function MainApp() {
+  const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<'home' | 'reel' | 'live' | 'message' | 'profile'>('home');
   const [activeHomeTab, setActiveHomeTab] = useState<'hot' | 'recommend'>('hot');
   const [selectedRoom, setSelectedRoom] = useState<StreamRoom | null>(null);
@@ -37,6 +39,11 @@ export function MainApp() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   const handleStartStream = async (title: string, category: string, type: RoomType, mode?: 'solo' | 'multi') => {
+    if (!isAuthenticated) {
+      setIsAuthOpen(true);
+      return;
+    }
+
     try {
       const res = await fetch('/api/streams', {
         method: 'POST',
@@ -46,8 +53,8 @@ export function MainApp() {
           category,
           type,
           mode: mode || 'multi',
-          country: 'India',
-          countryFlag: '🇮🇳',
+          country: user.country || 'India',
+          countryFlag: user.countryFlag || '🇮🇳',
           tags: ['Live', category],
         }),
       });
@@ -66,8 +73,8 @@ export function MainApp() {
       type,
       mode: mode || 'multi',
       category,
-      country: 'India',
-      countryFlag: '🇮🇳',
+      country: user.country || 'India',
+      countryFlag: user.countryFlag || '🇮🇳',
       coverImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=800',
       viewerCount: 1,
       likeCount: 0,
@@ -76,7 +83,7 @@ export function MainApp() {
       isRecommended: true,
       durationSeconds: 0,
       pinnedMessage: `Welcome everyone to ${title}! 👋`,
-      host: MOCK_STREAMS[0].host,
+      host: user,
       guests: []
     };
     setSelectedRoom(fallbackRoom);

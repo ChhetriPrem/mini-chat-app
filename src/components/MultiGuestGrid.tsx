@@ -238,11 +238,11 @@ const SeatTile = React.memo<SeatTileProps>(({
                 e.stopPropagation();
                 onLeaveSeat(seatNum);
               }}
-              className="p-1.5 bg-red-600 hover:bg-red-500 text-white rounded-full text-[9px] font-bold shadow-lg transition-transform active:scale-95 flex items-center space-x-1 px-2.5 min-h-[32px]"
+              className="p-2 bg-red-600 hover:bg-red-500 text-white rounded-full text-[10px] font-bold shadow-lg transition-transform active:scale-95 flex items-center space-x-1 px-3 min-h-[40px] min-w-[40px] justify-center"
               title="Leave Stage Slot"
             >
-              <X className="w-3.5 h-3.5" />
-              <span className="text-[10px]">Leave</span>
+              <X className="w-4 h-4" />
+              <span className="text-[10px] font-bold">Leave</span>
             </button>
           )}
         </div>
@@ -260,12 +260,12 @@ const SeatTile = React.memo<SeatTileProps>(({
               />
               {isSpeakingNow && (
                 <span className="absolute -bottom-1 -right-1 p-1 bg-pink-500 text-white rounded-full text-[9px] shadow">
-                  <Volume2 className="w-3 h-3 animate-pulse" />
+                  <Volume2 className="w-3.5 h-3.5 animate-pulse" />
                 </span>
               )}
             </div>
           ) : (
-            <span className="text-[10px] font-black px-2 py-0.5 bg-indigo-600/90 backdrop-blur-md rounded-full text-white shadow-lg border border-indigo-400/30">
+            <span className="text-[10px] font-black px-2.5 py-1 bg-indigo-600/90 backdrop-blur-md rounded-full text-white shadow-lg border border-indigo-400/30">
               LIVE STREAM
             </span>
           )}
@@ -273,7 +273,7 @@ const SeatTile = React.memo<SeatTileProps>(({
 
         {/* Footer: User Info & Controls */}
         <div className="w-full flex flex-col items-center space-y-1">
-          <div className="flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-full border border-white/10">
+          <div className="flex items-center space-x-1 bg-black/70 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10">
             <span className="text-[10px] font-extrabold text-white truncate max-w-[120px]">
               {guest.user.name}
             </span>
@@ -290,7 +290,7 @@ const SeatTile = React.memo<SeatTileProps>(({
                   e.stopPropagation();
                   onToggleMic(seatNum);
                 }}
-                className={`p-2.5 rounded-full text-[9px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[36px] min-w-[36px] ${
+                className={`p-2.5 rounded-full text-[10px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[40px] min-w-[40px] ${
                   guest.isMicOn && !guest.isMutedByHost ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-red-500 hover:bg-red-400 text-white'
                 }`}
                 title={guest.isMicOn ? 'Mute Mic' : 'Unmute Mic'}
@@ -303,7 +303,7 @@ const SeatTile = React.memo<SeatTileProps>(({
                   e.stopPropagation();
                   onToggleVideo(seatNum);
                 }}
-                className={`p-2.5 rounded-full text-[9px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[36px] min-w-[36px] ${
+                className={`p-2.5 rounded-full text-[10px] font-bold shadow-md transition-all active:scale-95 flex items-center justify-center min-h-[40px] min-w-[40px] ${
                   guest.isVideoOn ? 'bg-indigo-500 hover:bg-indigo-400 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
                 }`}
                 title={guest.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'}

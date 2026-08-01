@@ -2,7 +2,6 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   ChevronLeft,
-  Pencil,
   Copy,
   Crown,
   ChevronRight,
@@ -18,6 +17,9 @@ import {
   Video,
   Award,
   Check,
+  LogOut,
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -31,11 +33,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenCreatorDashboard,
   onOpenAuth,
 }) => {
-  const { user } = useAuth();
+  const { user, isAuthenticated, signOut } = useAuth();
   const [copiedId, setCopiedId] = React.useState(false);
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText('50953432258');
+    navigator.clipboard.writeText(user.id);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
   };
@@ -47,12 +49,39 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <button className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all">
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <button
-          onClick={onOpenAuth}
-          className="px-3 py-1 bg-gradient-to-r from-indigo-600 to-pink-500 hover:opacity-90 rounded-full text-xs font-black text-white shadow-md transition-all flex items-center space-x-1"
-        >
-          <span>Login / Switch</span>
-        </button>
+
+        <div className="flex items-center space-x-2">
+          {isAuthenticated ? (
+            <div className="flex items-center space-x-1 px-2.5 py-1 bg-emerald-950/80 border border-emerald-500/40 rounded-full text-[11px] font-bold text-emerald-300">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Verified Session</span>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-1 px-2.5 py-1 bg-amber-950/80 border border-amber-500/40 rounded-full text-[11px] font-bold text-amber-300">
+              <UserCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>Guest Mode</span>
+            </div>
+          )}
+
+          {isAuthenticated ? (
+            <button
+              onClick={async () => {
+                await signOut();
+              }}
+              className="px-3 py-1 bg-red-600/30 hover:bg-red-600/50 border border-red-500/40 rounded-full text-xs font-bold text-red-300 transition-all flex items-center space-x-1"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
+          ) : (
+            <button
+              onClick={onOpenAuth}
+              className="px-3 py-1 bg-gradient-to-r from-indigo-600 to-pink-500 hover:opacity-90 rounded-full text-xs font-black text-white shadow-md transition-all flex items-center space-x-1"
+            >
+              <span>Sign In</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Profile Header & Ornate Crown Frame */}
@@ -71,13 +100,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {/* Name & Gender / Country Flag */}
         <div className="flex items-center space-x-1.5 pt-1">
           <h2 className="text-xl font-black text-white">{user.name}</h2>
-          <span className="text-sm">♂</span>
           <span className="text-base">{user.countryFlag}</span>
         </div>
 
         {/* User ID & Copy Button */}
         <div className="flex items-center space-x-1.5 text-xs text-gray-300 bg-white/5 px-3 py-1 rounded-full border border-white/10">
-          <span>ID: 50953432258</span>
+          <span className="truncate max-w-[200px]">ID: {user.id}</span>
           <button onClick={handleCopyId} className="hover:text-pink-400 transition-colors">
             {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>

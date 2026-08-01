@@ -1,188 +1,165 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { CURRENT_USER } from '../mockData';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
-export interface StoredAccount {
+const GUEST_USER: User = {
+  id: 'usr_guest_default',
+  name: 'Guest Explorer',
+  handle: 'guest_explorer',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+  country: 'India',
+  countryFlag: '🇮🇳',
+  level: 1,
+  vipLevel: 0,
+  svip: false,
+  isVerified: false,
+  bio: 'Exploring VibeLive streams 🎧',
+  followers: 0,
+  following: 0,
+  friends: 0,
+  visitors: 0,
+  coins: 1000,
+  diamonds: 0,
+};
+
+export interface Profile {
   id: string;
   name: string;
   handle: string;
-  email: string;
-  passwordHash: string;
-  avatar: string;
+  avatar?: string;
   bio?: string;
-  level: number;
-  coins: number;
-  diamonds: number;
+  country?: string;
+  country_flag?: string;
+  level?: number;
+  vip_level?: number;
+  svip?: boolean;
+  is_verified?: boolean;
+  coins?: number;
+  diamonds?: number;
+  followers?: number;
+  following?: number;
 }
 
 interface AuthContextType {
   user: User;
+  session: any;
+  profile: Profile | null;
+  isLoading: boolean;
   isAuthenticated: boolean;
-  loginGuest: () => void;
-  loginUser: (name: string, email: string) => void;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signUp: (params: { name: string; handle: string; email: string; password: string; avatar?: string; bio?: string }) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  // Legacy aliases for component compatibility
   loginUserWithPassword: (emailOrHandle: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signupUser: (params: { name: string; handle: string; email: string; password: string; avatar?: string; bio?: string }) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  loginGuest: () => void;
   buyCoins: (amount: number) => void;
   deductCoins: (amount: number) => boolean;
   addDiamonds: (amount: number) => void;
   updateUser: (updates: Partial<User>) => void;
   followingIds: Set<string>;
   toggleFollow: (userId: string) => void;
-  registeredAccounts: StoredAccount[];
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const DEFAULT_ACCOUNTS: StoredAccount[] = [
-  {
-    id: 'usr_maya',
-    name: 'Maya Lin',
-    handle: 'maya_official',
-    email: 'maya@vibelive.app',
-    passwordHash: 'password123',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-    bio: 'Top Streamer & Musician 🎵',
-    level: 42,
-    coins: 52000,
-    diamonds: 184000,
-  },
-  {
-    id: 'usr_sam',
-    name: 'Sam Beats',
-    handle: 'sam_beats',
-    email: 'sam@vibelive.app',
-    passwordHash: 'password123',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400',
-    bio: 'Electronic Music Producer & DJ 🎧',
-    level: 35,
-    coins: 12500,
-    diamonds: 45000,
-  },
-];
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User>(() => {
-    const saved = localStorage.getItem('vibelive_user');
-    return saved ? JSON.parse(saved) : CURRENT_USER;
-  });
+  const [session, setSession] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
+  const [guestCoins, setGuestCoins] = useState<number>(1000);
 
-  const [registeredAccounts, setRegisteredAccounts] = useState<StoredAccount[]>(() => {
-    const saved = localStorage.getItem('vibelive_accounts');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return DEFAULT_ACCOUNTS;
-      }
-    }
-    return DEFAULT_ACCOUNTS;
-  });
+  const fetchProfile = async (userId: string) => {
+    if (!isSupabaseConfigured() || !supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
-  const [followingIds, setFollowingIds] = useState<Set<string>>(() => {
-    return new Set(['usr_maya', 'usr_sam']);
-  });
-
-  useEffect(() => {
-    localStorage.setItem('vibelive_user', JSON.stringify(user));
-  }, [user]);
-
-  useEffect(() => {
-    localStorage.setItem('vibelive_accounts', JSON.stringify(registeredAccounts));
-  }, [registeredAccounts]);
-
-  const loginGuest = () => {
-    const guestUser: User = {
-      ...CURRENT_USER,
-      id: `guest_${Date.now()}`,
-      name: `Guest Creator ${Math.floor(Math.random() * 900 + 100)}`,
-      handle: `guest_${Math.floor(Math.random() * 9000 + 1000)}`,
-      coins: 5000,
-    };
-    setUser(guestUser);
-  };
-
-  const loginUser = (name: string, _email: string) => {
-    setUser((prev) => ({
-      ...prev,
-      name,
-      handle: name.toLowerCase().replace(/\s+/g, '_'),
-    }));
-  };
-
-  const loginUserWithPassword = async (emailOrHandle: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    const query = emailOrHandle.trim().toLowerCase();
-
-    // 1. Try Supabase if configured
-    if (isSupabaseConfigured() && supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: query,
-        password,
-      });
-      if (!error && data.user) {
-        const loggedUser: User = {
-          id: data.user.id,
-          name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'VibeUser',
-          handle: data.user.user_metadata?.handle || 'user_' + data.user.id.substring(0, 5),
-          avatar: data.user.user_metadata?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-          country: 'USA',
-          countryFlag: '🇺🇸',
-          level: 10,
-          vipLevel: 1,
-          svip: false,
-          isVerified: true,
-          bio: 'Verified Vibe Creator',
-          followers: 120,
-          following: 45,
-          friends: 30,
-          visitors: 500,
-          coins: 10000,
-          diamonds: 500,
+      if (!error && data) {
+        setProfile(data);
+      } else if (!data) {
+        // Create profile if missing
+        const newProfile: Partial<Profile> = {
+          id: userId,
+          name: session?.user?.user_metadata?.name || session?.user?.email?.split('@')[0] || 'User',
+          handle: session?.user?.user_metadata?.handle || `user_${userId.slice(0, 6)}`,
+          avatar: session?.user?.user_metadata?.avatar || GUEST_USER.avatar,
         };
-        setUser(loggedUser);
-        return { success: true };
+        const { data: inserted } = await supabase.from('profiles').insert(newProfile).select().single();
+        if (inserted) setProfile(inserted);
       }
+    } catch (err) {
+      console.error('Error fetching Supabase profile:', err);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (isSupabaseConfigured() && supabase) {
+      supabase.auth.getSession().then(({ data }) => {
+        if (mounted) {
+          setSession(data.session);
+          if (data.session?.user) {
+            fetchProfile(data.session.user.id);
+          }
+          setIsLoading(false);
+        }
+      });
+
+      const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+        if (mounted) {
+          setSession(newSession);
+          if (newSession?.user) {
+            fetchProfile(newSession.user.id);
+          } else {
+            setProfile(null);
+          }
+        }
+      });
+
+      return () => {
+        mounted = false;
+        listener.subscription.unsubscribe();
+      };
+    } else {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const refreshProfile = async () => {
+    if (session?.user?.id) {
+      await fetchProfile(session.user.id);
+    }
+  };
+
+  const signIn = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    if (!isSupabaseConfigured() || !supabase) {
+      return { success: false, error: 'Supabase credentials are not configured.' };
     }
 
-    // 2. Fallback to registered accounts database
-    const found = registeredAccounts.find(
-      (a) => a.email.toLowerCase() === query || a.handle.toLowerCase() === query
-    );
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
 
-    if (!found) {
-      return { success: false, error: 'User account not found. Please sign up or try a preset account.' };
+    if (error) {
+      return { success: false, error: error.message };
     }
 
-    if (found.passwordHash !== password) {
-      return { success: false, error: 'Incorrect password. Please try again.' };
+    if (data.user) {
+      await fetchProfile(data.user.id);
     }
-
-    const userObj: User = {
-      id: found.id,
-      name: found.name,
-      handle: found.handle,
-      avatar: found.avatar,
-      country: 'USA',
-      countryFlag: '🇺🇸',
-      level: found.level || 1,
-      vipLevel: 1,
-      svip: false,
-      isVerified: true,
-      bio: found.bio || 'Vibe Creator',
-      followers: 240,
-      following: 12,
-      friends: 15,
-      visitors: 890,
-      coins: found.coins || 10000,
-      diamonds: found.diamonds || 1000,
-    };
-
-    setUser(userObj);
     return { success: true };
   };
 
-  const signupUser = async ({
+  const signUp = async ({
     name,
     handle,
     email,
@@ -197,99 +174,110 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     avatar?: string;
     bio?: string;
   }): Promise<{ success: boolean; error?: string }> => {
+    if (!isSupabaseConfigured() || !supabase) {
+      return { success: false, error: 'Supabase credentials are not configured.' };
+    }
+
     const cleanHandle = handle.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
     const cleanEmail = email.trim().toLowerCase();
 
     if (!name.trim()) return { success: false, error: 'Please enter your display name.' };
-    if (!cleanHandle) return { success: false, error: 'Please enter a valid username.' };
-    if (!cleanEmail.includes('@')) return { success: false, error: 'Please enter a valid email address.' };
-    if (password.length < 4) return { success: false, error: 'Password must be at least 4 characters long.' };
+    if (!cleanHandle) return { success: false, error: 'Please enter a valid handle.' };
+    if (!cleanEmail.includes('@')) return { success: false, error: 'Please enter a valid email.' };
+    if (password.length < 6) return { success: false, error: 'Password must be at least 6 characters.' };
 
-    const exists = registeredAccounts.some(
-      (a) => a.email.toLowerCase() === cleanEmail || a.handle.toLowerCase() === cleanHandle
-    );
+    // Check handle availability first
+    const { data: existingHandle } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('handle', cleanHandle)
+      .maybeSingle();
 
-    if (exists) {
-      return { success: false, error: 'Account with this email or handle already exists.' };
+    if (existingHandle) {
+      return { success: false, error: 'Username/Handle is already taken.' };
     }
 
-    // Try Supabase if configured
-    if (isSupabaseConfigured() && supabase) {
-      await supabase.auth.signUp({
-        email: cleanEmail,
-        password,
-        options: {
-          data: {
-            full_name: name,
-            handle: cleanHandle,
-            avatar,
-          },
-        },
-      });
-    }
-
-    const newAcc: StoredAccount = {
-      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      name: name.trim(),
-      handle: cleanHandle,
+    const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
-      passwordHash: password,
-      avatar: avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=400',
-      bio: bio || 'Excited to be on VibeLive! ✨',
-      level: 1,
-      coins: 10000, // 10,000 Welcome Bonus Coins
-      diamonds: 500,
-    };
+      password,
+      options: {
+        data: {
+          name: name.trim(),
+          handle: cleanHandle,
+          avatar: avatar || GUEST_USER.avatar,
+          bio: bio || '',
+        },
+      },
+    });
 
-    setRegisteredAccounts((prev) => [...prev, newAcc]);
+    if (error) {
+      return { success: false, error: error.message };
+    }
 
-    const newUserObj: User = {
-      id: newAcc.id,
-      name: newAcc.name,
-      handle: newAcc.handle,
-      avatar: newAcc.avatar,
-      country: 'USA',
-      countryFlag: '🇺🇸',
-      level: 1,
-      vipLevel: 1,
-      svip: false,
-      isVerified: false,
-      bio: newAcc.bio || '',
-      followers: 1,
-      following: 0,
-      friends: 0,
-      visitors: 1,
-      coins: 10000,
-      diamonds: 500,
-    };
-
-    setUser(newUserObj);
+    if (data.user) {
+      await fetchProfile(data.user.id);
+    }
     return { success: true };
   };
 
-  const logout = () => {
-    localStorage.removeItem('vibelive_user');
-    loginGuest();
+  const signOut = async () => {
+    if (isSupabaseConfigured() && supabase) {
+      await supabase.auth.signOut();
+    }
+    setSession(null);
+    setProfile(null);
   };
 
-  const buyCoins = (amount: number) => {
-    setUser((prev) => ({ ...prev, coins: prev.coins + amount }));
+  const loginGuest = () => {
+    // Guest fallback reset
+  };
+
+  const buyCoins = async (amount: number) => {
+    if (profile && isSupabaseConfigured() && supabase) {
+      const newCoins = (profile.coins || 0) + amount;
+      setProfile((p) => p ? { ...p, coins: newCoins } : null);
+      await supabase.from('profiles').update({ coins: newCoins }).eq('id', profile.id);
+    } else {
+      setGuestCoins((c) => c + amount);
+    }
   };
 
   const deductCoins = (amount: number): boolean => {
-    if (user.coins >= amount) {
-      setUser((prev) => ({ ...prev, coins: prev.coins - amount }));
+    const currentCoins = profile ? (profile.coins ?? 5000) : guestCoins;
+    if (currentCoins >= amount) {
+      const newCoins = currentCoins - amount;
+      if (profile && isSupabaseConfigured() && supabase) {
+        setProfile((p) => p ? { ...p, coins: newCoins } : null);
+        supabase.from('profiles').update({ coins: newCoins }).eq('id', profile.id);
+      } else {
+        setGuestCoins(newCoins);
+      }
       return true;
     }
     return false;
   };
 
-  const addDiamonds = (amount: number) => {
-    setUser((prev) => ({ ...prev, diamonds: prev.diamonds + amount }));
+  const addDiamonds = async (amount: number) => {
+    if (profile && isSupabaseConfigured() && supabase) {
+      const newDiamonds = (profile.diamonds || 0) + amount;
+      setProfile((p) => p ? { ...p, diamonds: newDiamonds } : null);
+      await supabase.from('profiles').update({ diamonds: newDiamonds }).eq('id', profile.id);
+    }
   };
 
-  const updateUser = (updates: Partial<User>) => {
-    setUser((prev) => ({ ...prev, ...updates }));
+  const updateUser = async (updates: Partial<User>) => {
+    if (profile && isSupabaseConfigured() && supabase) {
+      const dbUpdates: Record<string, any> = {};
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.handle !== undefined) dbUpdates.handle = updates.handle;
+      if (updates.avatar !== undefined) dbUpdates.avatar = updates.avatar;
+      if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+      if (updates.country !== undefined) dbUpdates.country = updates.country;
+      if (updates.countryFlag !== undefined) dbUpdates.country_flag = updates.countryFlag;
+
+      setProfile((p) => (p ? { ...p, ...dbUpdates } : null));
+      await supabase.from('profiles').update(dbUpdates).eq('id', profile.id);
+    }
   };
 
   const toggleFollow = (targetUserId: string) => {
@@ -297,32 +285,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const next = new Set(prev);
       if (next.has(targetUserId)) {
         next.delete(targetUserId);
-        setUser((u) => ({ ...u, following: Math.max(0, u.following - 1) }));
       } else {
         next.add(targetUserId);
-        setUser((u) => ({ ...u, following: u.following + 1 }));
       }
       return next;
     });
   };
 
+  // Compute standard user object from profile
+  const user: User = profile
+    ? {
+        id: profile.id,
+        name: profile.name || 'User',
+        handle: profile.handle || 'user',
+        avatar: profile.avatar || GUEST_USER.avatar,
+        country: profile.country || 'India',
+        countryFlag: profile.country_flag || '🇮🇳',
+        level: profile.level || 1,
+        vipLevel: profile.vip_level || 0,
+        svip: profile.svip || false,
+        isVerified: profile.is_verified || false,
+        bio: profile.bio || '',
+        followers: profile.followers || 0,
+        following: profile.following || 0,
+        friends: 0,
+        visitors: 0,
+        coins: profile.coins ?? 5000,
+        diamonds: profile.diamonds ?? 0,
+      }
+    : {
+        ...GUEST_USER,
+        coins: guestCoins,
+      };
+
+  const isAuthenticated = !!session?.user;
+
   return (
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: true,
+        session,
+        profile,
+        isLoading,
+        isAuthenticated,
+        signIn,
+        signUp,
+        signOut,
+        loginUserWithPassword: signIn,
+        signupUser: signUp,
+        logout: signOut,
         loginGuest,
-        loginUser,
-        loginUserWithPassword,
-        signupUser,
-        logout,
         buyCoins,
         deductCoins,
         addDiamonds,
         updateUser,
         followingIds,
         toggleFollow,
-        registeredAccounts,
+        refreshProfile,
       }}
     >
       {children}
@@ -335,3 +354,4 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
+

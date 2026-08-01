@@ -1,33 +1,18 @@
 import React, { useState } from 'react';
-import { MOCK_STREAMS } from '../mockData';
-import { Search, Send, MessageSquare, Bell, Heart, Gift } from 'lucide-react';
+import { Search, Send, MessageSquare } from 'lucide-react';
+import { User } from '../types';
 
 export const MessagesView: React.FC = () => {
-  const [activeChatId, setActiveChatId] = useState<string | null>(MOCK_STREAMS[0].host.id);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [inputMsg, setInputMsg] = useState('');
-  const [chats, setChats] = useState([
-    {
-      id: MOCK_STREAMS[0].host.id,
-      user: MOCK_STREAMS[0].host,
-      lastMsg: 'Hey Alvin! Thanks for joining my acoustic live stream!',
-      time: '10:45 AM',
-      unread: 2,
-      messages: [
-        { sender: 'them', text: 'Hey Alvin! Thanks for joining my acoustic live stream!' },
-        { sender: 'me', text: 'Loved your singing! Will definitely send more gifts next stream!' },
-      ],
-    },
-    {
-      id: MOCK_STREAMS[1].host.id,
-      user: MOCK_STREAMS[1].host,
-      lastMsg: 'Invited you to join seat #2 in Midnight Voice Lounge 🎙️',
-      time: 'Yesterday',
-      unread: 1,
-      messages: [
-        { sender: 'them', text: 'Invited you to join seat #2 in Midnight Voice Lounge 🎙️' },
-      ],
-    },
-  ]);
+  const [chats, setChats] = useState<Array<{
+    id: string;
+    user: Partial<User>;
+    lastMsg: string;
+    time: string;
+    unread: number;
+    messages: Array<{ sender: 'me' | 'them'; text: string }>;
+  }>>([]);
 
   const activeChat = chats.find((c) => c.id === activeChatId);
 

@@ -228,6 +228,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const sendChatMessage = (content: string) => {
     if (!activeRoomId) return;
+
+    // Optimistic local add
+    const optimisticMsg: ChatMessage = {
+      id: `opt_msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      roomId: activeRoomId,
+      sender: user,
+      content,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setChatMessages((prev) => [...prev.slice(-100), optimisticMsg]);
+
     safeSend({
       type: 'chat-message',
       content,
@@ -237,6 +248,34 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const sendVirtualGift = (gift: VirtualGift, count: number) => {
     if (!activeRoomId) return;
+
+    // Optimistic floating gift
+    const giftId = `fg_opt_${Date.now()}_${Math.random()}`;
+    setFloatingGifts((prev) => [
+      ...prev,
+      { id: giftId, gift, count, senderName: user.name },
+    ]);
+    setTimeout(() => {
+      setFloatingGifts((prev) => prev.filter((g) => g.id !== giftId));
+    }, 4000);
+
+    const giftMsg: ChatMessage = {
+      id: `opt_gift_${Date.now()}`,
+      roomId: activeRoomId,
+      sender: user,
+      content: `sent ${gift.name} x${count} ${gift.icon}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isGift: true,
+      giftData: {
+        giftId: gift.id,
+        giftName: gift.name,
+        giftIcon: gift.icon,
+        count,
+        valueCoins: gift.priceCoins
+      }
+    };
+    setChatMessages((prev) => [...prev.slice(-100), giftMsg]);
+
     safeSend({
       type: 'send-gift',
       gift,

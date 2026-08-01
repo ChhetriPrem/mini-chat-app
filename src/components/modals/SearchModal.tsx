@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { X, Search, Users, Radio } from 'lucide-react';
-import { MOCK_STREAMS } from '../../mockData';
+import React, { useState, useEffect } from 'react';
+import { X, Search } from 'lucide-react';
 import { StreamRoom } from '../../types';
 
 interface SearchModalProps {
@@ -11,14 +10,26 @@ interface SearchModalProps {
 
 export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, onSelectRoom }) => {
   const [query, setQuery] = useState('');
+  const [streams, setStreams] = useState<StreamRoom[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/streams')
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setStreams(data);
+        })
+        .catch((err) => console.error('Failed to load streams in search:', err));
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const filtered = MOCK_STREAMS.filter(
+  const filtered = streams.filter(
     (s) =>
-      s.title.toLowerCase().includes(query.toLowerCase()) ||
-      s.host.name.toLowerCase().includes(query.toLowerCase()) ||
-      s.category.toLowerCase().includes(query.toLowerCase())
+      s.title?.toLowerCase().includes(query.toLowerCase()) ||
+      s.host?.name?.toLowerCase().includes(query.toLowerCase()) ||
+      s.category?.toLowerCase().includes(query.toLowerCase())
   );
 
   return (

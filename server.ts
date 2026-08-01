@@ -3,9 +3,57 @@ import http from 'http';
 import path from 'path';
 import fs from 'fs';
 import { WebSocketServer, WebSocket } from 'ws';
+import { createClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
-import { CURRENT_USER, MOCK_STREAMS, VIRTUAL_GIFTS, MOCK_REELS, MOCK_NOTIFICATIONS } from './src/mockData';
+import { VIRTUAL_GIFTS } from './src/data/gifts';
 import { StreamRoom, User, ChatMessage, VirtualGift, RoomGuest } from './src/types';
+
+// Supabase Admin / Service Client
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseAdmin = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+
+const DEFAULT_USER: User = {
+  id: 'usr_maya',
+  name: 'Maya Lin',
+  handle: 'maya_official',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+  country: 'India',
+  countryFlag: '🇮🇳',
+  level: 10,
+  vipLevel: 1,
+  svip: false,
+  isVerified: true,
+  bio: 'Live Streamer & Musician 🎵',
+  followers: 120,
+  following: 45,
+  friends: 30,
+  visitors: 500,
+  coins: 10000,
+  diamonds: 500,
+};
+
+const INITIAL_STREAMS: StreamRoom[] = [
+  {
+    id: 'room_live_1',
+    title: '🎵 Bollywood & Pop Live Singing Lounge! 🎤',
+    type: 'video',
+    mode: 'multi',
+    category: 'Music',
+    country: 'India',
+    countryFlag: '🇮🇳',
+    coverImage: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&q=80&w=800',
+    viewerCount: 1420,
+    likeCount: 8900,
+    tags: ['Singing', 'Bollywood', 'Live'],
+    isHot: true,
+    isRecommended: true,
+    durationSeconds: 0,
+    pinnedMessage: 'Welcome to the Live Lounge! Drop song requests in chat! 🎶',
+    host: DEFAULT_USER,
+    guests: [],
+  },
+];
 
 const app = express();
 app.use(express.json());
@@ -37,10 +85,10 @@ function getGeminiClient(): GoogleGenAI | null {
 }
 
 // In-Memory Data Store for Server State
-let roomsStore: StreamRoom[] = [...MOCK_STREAMS];
-let currentUserStore: User = { ...CURRENT_USER };
-let reelsStore = [...MOCK_REELS];
-let notificationsStore = [...MOCK_NOTIFICATIONS];
+let roomsStore: StreamRoom[] = [...INITIAL_STREAMS];
+let currentUserStore: User = { ...DEFAULT_USER };
+let reelsStore: any[] = [];
+let notificationsStore: any[] = [];
 
 // Active WebSocket Room connections
 interface ClientConnection {
@@ -80,14 +128,34 @@ wss.on('connection', (ws: WebSocket) => {
       const data = JSON.parse(rawMessage.toString());
 
       switch (data.type) {
+        case 'authenticate-token': {
+          if (supabaseAdmin && data.token) {
+            try {
+              const { data: userData, error } = await supabaseAdmin.auth.getUser(data.token);
+              if (userData?.user && !error) {
+                conn.userId = userData.user.id;
+                // Fetch profile
+                const { data: prof } = await supabaseAdmin.from('profiles').select('*').eq('id', userData.user.id).single();
+                if (prof) {
+                  conn.userName = prof.name || prof.handle;
+                }
+                ws.send(JSON.stringify({ type: 'authenticated-user', userId: conn.userId, userName: conn.userName }));
+              }
+            } catch (err) {
+              console.warn('WS auth token verification failed:', err);
+            }
+          }
+          break;
+        }
+
         case 'join-room': {
           if (conn.roomId && roomClients.has(conn.roomId)) {
             roomClients.get(conn.roomId)?.delete(conn);
           }
 
           conn.roomId = data.roomId;
-          conn.userId = data.user?.id || conn.userId;
-          conn.userName = data.user?.name || conn.userName;
+          if (data.user?.id) conn.userId = data.user.id;
+          if (data.user?.name) conn.userName = data.user.name;
 
           if (!roomClients.has(data.roomId)) {
             roomClients.set(data.roomId, new Set());
@@ -165,6 +233,23 @@ wss.on('connection', (ws: WebSocket) => {
             type: 'chat-message',
             message: msg
           });
+
+          // Persist chat message to Supabase database in background
+          if (supabaseAdmin) {
+            (async () => {
+              try {
+                const { error } = await supabaseAdmin.from('messages').insert({
+                  stream_id: conn.roomId,
+                  sender_id: conn.userId,
+                  content: data.content,
+                  is_gift: false
+                });
+                if (error) console.warn('Supabase message persist note:', error.message);
+              } catch (err) {
+                // Ignore transient db errors
+              }
+            })();
+          }
 
           // Check for AI Assistant prompt command (e.g. "@AI", "!ai")
           if (data.content.startsWith('@AI') || data.content.startsWith('!ai')) {

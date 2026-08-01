@@ -1,6 +1,7 @@
 import React from 'react';
-import { Search, Trophy, Bell, Coins, Sparkles, Settings } from 'lucide-react';
+import { Search, Trophy, Bell, Coins, Sparkles, Settings, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 
 interface HeaderProps {
   activeHomeTab: 'hot' | 'recommend';
@@ -24,31 +25,44 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAuth,
 }) => {
   const { user } = useAuth();
+  const socket = useSocket();
+  const isConnected = socket?.isConnected ?? false;
 
   return (
     <div className="sticky top-0 z-30 bg-[#050507]/90 backdrop-blur-xl px-4 py-3 border-b border-white/10 flex items-center justify-between">
       {/* Top Tabs */}
-      <div className="flex items-center space-x-2 bg-white/5 p-1 rounded-full border border-white/10">
-        <button
-          onClick={() => setActiveHomeTab('hot')}
-          className={`px-3.5 py-1 rounded-full text-xs font-black transition-all ${
-            activeHomeTab === 'hot'
-              ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-white shadow-lg shadow-indigo-600/30'
-              : 'text-slate-400 hover:text-white'
-          }`}
+      <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 bg-white/5 p-1 rounded-full border border-white/10">
+          <button
+            onClick={() => setActiveHomeTab('hot')}
+            className={`px-3.5 py-1 rounded-full text-xs font-black transition-all ${
+              activeHomeTab === 'hot'
+                ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-white shadow-lg shadow-indigo-600/30'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            🔥 Hot
+          </button>
+          <button
+            onClick={() => setActiveHomeTab('recommend')}
+            className={`px-3.5 py-1 rounded-full text-xs font-black transition-all ${
+              activeHomeTab === 'recommend'
+                ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-white shadow-lg shadow-purple-600/30'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            ✨ Discover
+          </button>
+        </div>
+
+        {/* WS Connection Indicator */}
+        <div
+          title={isConnected ? 'Realtime WS Connected' : 'Connecting Realtime WS...'}
+          className="flex items-center space-x-1 px-2 py-1 bg-white/5 rounded-full border border-white/10 text-[10px] font-bold text-slate-300"
         >
-          🔥 Hot
-        </button>
-        <button
-          onClick={() => setActiveHomeTab('recommend')}
-          className={`px-3.5 py-1 rounded-full text-xs font-black transition-all ${
-            activeHomeTab === 'recommend'
-              ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 text-white shadow-lg shadow-purple-600/30'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          ✨ Discover
-        </button>
+          <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400/80' : 'bg-amber-400 animate-ping'}`} />
+          <span className="hidden sm:inline">{isConnected ? 'Live WS' : 'Connecting'}</span>
+        </div>
       </div>
 
       {/* Right Icons Row */}
