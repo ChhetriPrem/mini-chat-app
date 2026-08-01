@@ -1,0 +1,363 @@
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { useAuth } from './AuthContext';
+import { ChatMessage, VirtualGift, RoomGuest } from '../types';
+
+interface SocketContextType {
+  isConnected: boolean;
+  activeRoomId: string | null;
+  joinRoom: (roomId: string) => void;
+  leaveRoom: () => void;
+  sendChatMessage: (content: string) => void;
+  sendVirtualGift: (gift: VirtualGift, count: number) => void;
+  sendEmojiReaction: (emoji: string) => void;
+  takeSeat: (seatNumber: number, slotType?: 'video' | 'audio') => void;
+  leaveSeat: (seatNumber: number) => void;
+  toggleMic: (seatNumber: number) => void;
+  toggleVideo: (seatNumber: number) => void;
+  kickGuest: (seatNumber: number) => void;
+  hostToggleMute: (seatNumber: number) => void;
+  requestStageSlot: (slotType: 'video' | 'audio') => void;
+  cancelStageRequest: () => void;
+  approveStageRequest: (requestId: string) => void;
+  sendDrawStroke: (stroke: any) => void;
+  clearCanvas: () => void;
+  chatMessages: ChatMessage[];
+  floatingGifts: { id: string; gift: VirtualGift; count: number; senderName: string }[];
+  floatingEmojis: { id: string; emoji: string }[];
+  systemAnnouncements: string[];
+  currentViewerCount: number;
+  guestSeats: RoomGuest[];
+  stageRequests: any[];
+}
+
+const SocketContext = createContext<SocketContextType | undefined>(undefined);
+
+export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const socketRef = useRef<WebSocket | null>(null);
+  const activeRoomIdRef = useRef<string | null>(null);
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  const [isConnected, setIsConnected] = useState(false);
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [floatingGifts, setFloatingGifts] = useState<{ id: string; gift: VirtualGift; count: number; senderName: string }[]>([]);
+  const [floatingEmojis, setFloatingEmojis] = useState<{ id: string; emoji: string }[]>([]);
+  const [systemAnnouncements, setSystemAnnouncements] = useState<string[]>([]);
+  const [currentViewerCount, setCurrentViewerCount] = useState<number>(109);
+  const [guestSeats, setGuestSeats] = useState<RoomGuest[]>([]);
+  const [stageRequests, setStageRequests] = useState<any[]>([]);
+
+  useEffect(() => {
+    let reconnectTimeout: any = null;
+    let isComponentMounted = true;
+
+    const connectWebSocket = () => {
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          if (!isComponentMounted) return;
+          setIsConnected(true);
+          console.log('⚡ Connected to VibeLive WebSocket server');
+
+          // Auto re-join active room if connection restored
+          if (activeRoomIdRef.current) {
+            ws.send(
+              JSON.stringify({
+                type: 'join-room',
+                roomId: activeRoomIdRef.current,
+                user: userRef.current,
+              })
+            );
+          }
+        };
+
+        ws.onmessage = (event) => {
+          if (!isComponentMounted) return;
+          try {
+            const data = JSON.parse(event.data);
+
+            switch (data.type) {
+              case 'chat-message':
+                setChatMessages((prev) => [...prev.slice(-100), data.message]);
+                break;
+
+              case 'system-message':
+                setSystemAnnouncements((prev) => [...prev.slice(-10), data.content]);
+                if (data.viewerCount) setCurrentViewerCount(data.viewerCount);
+                break;
+
+              case 'viewer-count-update':
+                if (data.viewerCount !== undefined) setCurrentViewerCount(data.viewerCount);
+                break;
+
+              case 'send-gift': {
+                const giftId = `fg_${Date.now()}_${Math.random()}`;
+                setFloatingGifts((prev) => [
+                  ...prev,
+                  { id: giftId, gift: data.gift, count: data.count, senderName: data.sender?.name || 'Anonymous' },
+                ]);
+                setTimeout(() => {
+                  setFloatingGifts((prev) => prev.filter((g) => g.id !== giftId));
+                }, 4000);
+
+                if (data.message) {
+                  setChatMessages((prev) => [...prev.slice(-100), data.message]);
+                }
+                break;
+              }
+
+              case 'emoji-reaction': {
+                const emojiId = `fe_${Date.now()}_${Math.random()}`;
+                setFloatingEmojis((prev) => [...prev, { id: emojiId, emoji: data.emoji }]);
+                setTimeout(() => {
+                  setFloatingEmojis((prev) => prev.filter((e) => e.id !== emojiId));
+                }, 2500);
+                break;
+              }
+
+              case 'guests-update':
+                setGuestSeats(data.guests || []);
+                if (data.stageRequests) setStageRequests(data.stageRequests);
+                break;
+            }
+          } catch (e) {
+            console.error('Error parsing WS message:', e);
+          }
+        };
+
+        ws.onerror = (_err) => {
+          // Silent catch to prevent unhandled console noise
+        };
+
+        ws.onclose = () => {
+          if (!isComponentMounted) return;
+          setIsConnected(false);
+          // Attempt auto-reconnect after 3 seconds
+          reconnectTimeout = setTimeout(connectWebSocket, 3000);
+        };
+
+        socketRef.current = ws;
+      } catch (err) {
+        if (isComponentMounted) {
+          reconnectTimeout = setTimeout(connectWebSocket, 3000);
+        }
+      }
+    };
+
+    connectWebSocket();
+
+    return () => {
+      isComponentMounted = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
+    };
+  }, [user.id]);
+
+  const safeSend = (payload: any) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      try {
+        socketRef.current.send(JSON.stringify(payload));
+      } catch (err) {
+        console.warn('Socket send suppressed:', err);
+      }
+    }
+  };
+
+  const joinRoom = (roomId: string) => {
+    setActiveRoomId(roomId);
+    activeRoomIdRef.current = roomId;
+    setChatMessages([]);
+    setGuestSeats([]);
+    setStageRequests([]);
+
+    safeSend({
+      type: 'join-room',
+      roomId,
+      user: userRef.current,
+    });
+  };
+
+  const leaveRoom = () => {
+    if (activeRoomId) {
+      safeSend({
+        type: 'leave-room',
+        roomId: activeRoomId,
+      });
+    }
+    setActiveRoomId(null);
+    activeRoomIdRef.current = null;
+  };
+
+  const sendChatMessage = (content: string) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'chat-message',
+      content,
+      sender: user,
+    });
+  };
+
+  const sendVirtualGift = (gift: VirtualGift, count: number) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'send-gift',
+      gift,
+      count,
+      sender: user,
+    });
+  };
+
+  const sendEmojiReaction = (emoji: string) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'emoji-reaction',
+      emoji,
+    });
+  };
+
+  const takeSeat = (seatNumber: number, slotType: 'video' | 'audio' = 'video') => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'seat-action',
+      action: 'take',
+      seatNumber,
+      slotType,
+      user,
+    });
+  };
+
+  const leaveSeat = (seatNumber: number) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'seat-action',
+      action: 'leave',
+      seatNumber,
+    });
+  };
+
+  const toggleMic = (seatNumber: number) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'seat-action',
+      action: 'toggle-mic',
+      seatNumber,
+    });
+  };
+
+  const toggleVideo = (seatNumber: number) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'seat-action',
+      action: 'toggle-video',
+      seatNumber,
+    });
+  };
+
+  const kickGuest = (seatNumber: number) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'seat-action',
+      action: 'kick',
+      seatNumber,
+    });
+  };
+
+  const hostToggleMute = (seatNumber: number) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'seat-action',
+      action: 'host-toggle-mute',
+      seatNumber,
+    });
+  };
+
+  const requestStageSlot = (slotType: 'video' | 'audio') => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'seat-action',
+      action: 'request-stage',
+      slotType,
+      user,
+    });
+  };
+
+  const cancelStageRequest = () => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'seat-action',
+      action: 'cancel-request',
+      user,
+    });
+  };
+
+  const approveStageRequest = (requestId: string) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'seat-action',
+      action: 'approve-request',
+      requestId,
+    });
+  };
+
+  const sendDrawStroke = (stroke: any) => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'draw-stroke',
+      stroke,
+    });
+  };
+
+  const clearCanvas = () => {
+    if (!activeRoomId) return;
+    safeSend({
+      type: 'clear-canvas',
+    });
+  };
+
+  return (
+    <SocketContext.Provider
+      value={{
+        isConnected,
+        activeRoomId,
+        joinRoom,
+        leaveRoom,
+        sendChatMessage,
+        sendVirtualGift,
+        sendEmojiReaction,
+        takeSeat,
+        leaveSeat,
+        toggleMic,
+        toggleVideo,
+        kickGuest,
+        hostToggleMute,
+        requestStageSlot,
+        cancelStageRequest,
+        approveStageRequest,
+        sendDrawStroke,
+        clearCanvas,
+        chatMessages,
+        floatingGifts,
+        floatingEmojis,
+        systemAnnouncements,
+        currentViewerCount,
+        guestSeats,
+        stageRequests,
+      }}
+    >
+      {children}
+    </SocketContext.Provider>
+  );
+};
+
+export const useSocket = () => {
+  const context = useContext(SocketContext);
+  if (!context) throw new Error('useSocket must be used within a SocketProvider');
+  return context;
+};
