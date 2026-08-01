@@ -68,36 +68,7 @@ export const MOCK_STREAMS: StreamRoom[] = [
       coins: 45000,
       diamonds: 189000,
     },
-    guests: [
-      {
-        id: 'guest_1',
-        seatNumber: 1,
-        slotType: 'video',
-        isMicOn: true,
-        isVideoOn: true,
-        isSpeaking: true,
-        isMutedByHost: false,
-        user: {
-          id: 'usr_leo',
-          name: 'Leo Beats',
-          handle: 'leo_beats',
-          avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400',
-          country: 'USA',
-          countryFlag: '🇺🇸',
-          level: 28,
-          vipLevel: 2,
-          svip: false,
-          isVerified: false,
-          bio: 'Guitarist',
-          followers: 12000,
-          following: 110,
-          friends: 95,
-          visitors: 1400,
-          coins: 2000,
-          diamonds: 8900,
-        }
-      }
-    ]
+    guests: []
   },
   {
     id: 'room_2',
@@ -133,64 +104,7 @@ export const MOCK_STREAMS: StreamRoom[] = [
       coins: 12000,
       diamonds: 64000,
     },
-    guests: [
-      {
-        id: 'guest_21',
-        seatNumber: 1,
-        slotType: 'audio',
-        isMicOn: true,
-        isVideoOn: false,
-        isSpeaking: false,
-        isMutedByHost: false,
-        user: {
-          id: 'usr_ken',
-          name: 'Kenji',
-          handle: 'ken_ph',
-          avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400',
-          country: 'Philippines',
-          countryFlag: '🇵🇭',
-          level: 15,
-          vipLevel: 1,
-          svip: false,
-          isVerified: false,
-          bio: 'Gamer',
-          followers: 3200,
-          following: 400,
-          friends: 210,
-          visitors: 800,
-          coins: 1500,
-          diamonds: 3200,
-        }
-      },
-      {
-        id: 'guest_22',
-        seatNumber: 2,
-        slotType: 'audio',
-        isMicOn: false,
-        isVideoOn: false,
-        isSpeaking: false,
-        isMutedByHost: true,
-        user: {
-          id: 'usr_elena',
-          name: 'Elena',
-          handle: 'elena_style',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-          country: 'Turkey',
-          countryFlag: '🇹🇷',
-          level: 21,
-          vipLevel: 2,
-          svip: false,
-          isVerified: false,
-          bio: 'Traveler',
-          followers: 8900,
-          following: 610,
-          friends: 320,
-          visitors: 1900,
-          coins: 4300,
-          diamonds: 12000,
-        }
-      }
-    ]
+    guests: []
   },
   {
     id: 'room_3',

@@ -264,6 +264,14 @@ class SFUMediaManager {
       this.localStream.getTracks().forEach((track) => {
         pc.addTrack(track, this.localStream!);
       });
+    } else {
+      // If viewer (no local stream), add receive-only transceivers so SDP offer/answer negotiates incoming video & audio
+      try {
+        pc.addTransceiver('video', { direction: 'recvonly' });
+        pc.addTransceiver('audio', { direction: 'recvonly' });
+      } catch (e) {
+        console.warn('Transceiver setup note:', e);
+      }
     }
 
     pc.onicecandidate = (event) => {
@@ -278,7 +286,13 @@ class SFUMediaManager {
     };
 
     pc.ontrack = (event) => {
-      const remoteStream = event.streams[0] || new MediaStream([event.track]);
+      const existingEntry = this.remoteStreams.get(remoteUserId);
+      const remoteStream = existingEntry?.stream || event.streams[0] || new MediaStream();
+
+      if (!remoteStream.getTracks().includes(event.track)) {
+        remoteStream.addTrack(event.track);
+      }
+
       this.remoteStreams.set(remoteUserId, {
         userId: remoteUserId,
         seatNumber,
