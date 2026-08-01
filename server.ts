@@ -89,6 +89,13 @@ let roomsStore: StreamRoom[] = [...INITIAL_STREAMS];
 let currentUserStore: User = { ...DEFAULT_USER };
 let reelsStore: any[] = [];
 let notificationsStore: any[] = [];
+let directMessagesStore: Array<{
+  id: string;
+  senderId: string;
+  recipientId: string;
+  encryptedContent: string;
+  timestamp: string;
+}> = [];
 
 // Active WebSocket Room connections
 interface ClientConnection {
@@ -639,6 +646,55 @@ app.post('/api/auth/login', (req, res) => {
 // Reels
 app.get('/api/reels', (_req, res) => {
   res.json(reelsStore);
+});
+
+// Direct Messages REST API (Encrypted payloads stored in DB)
+app.get('/api/direct-messages/:userId', (req, res) => {
+  const { userId } = req.params;
+  const currentUserId = (req.query.currentUserId as string) || currentUserStore.id;
+
+  const msgs = directMessagesStore.filter(
+    (m) =>
+      (m.senderId === currentUserId && m.recipientId === userId) ||
+      (m.senderId === userId && m.recipientId === currentUserId)
+  );
+
+  res.json(msgs);
+});
+
+app.post('/api/direct-messages', (req, res) => {
+  const { recipientId, encryptedContent, senderId } = req.body;
+  if (!recipientId || !encryptedContent) {
+    return res.status(400).json({ error: 'recipientId and encryptedContent are required' });
+  }
+
+  const newMsg = {
+    id: `dm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    senderId: senderId || currentUserStore.id,
+    recipientId,
+    encryptedContent,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  };
+
+  directMessagesStore.push(newMsg);
+
+  // If Supabase is available, persist encrypted payload in messages table
+  if (supabaseAdmin) {
+    (async () => {
+      try {
+        await supabaseAdmin.from('direct_messages').insert({
+          id: newMsg.id,
+          sender_id: newMsg.senderId,
+          recipient_id: newMsg.recipientId,
+          encrypted_content: encryptedContent,
+        });
+      } catch (e) {
+        // Safe failover
+      }
+    })();
+  }
+
+  res.json(newMsg);
 });
 
 // Notifications

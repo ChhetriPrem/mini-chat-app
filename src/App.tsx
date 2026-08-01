@@ -27,6 +27,7 @@ export function MainApp() {
   const [activeTab, setActiveTab] = useState<'home' | 'reel' | 'live' | 'message' | 'profile'>('home');
   const [activeHomeTab, setActiveHomeTab] = useState<'hot' | 'recommend'>('hot');
   const [selectedRoom, setSelectedRoom] = useState<StreamRoom | null>(null);
+  const [selectedChatUser, setSelectedChatUser] = useState<{ id: string; name: string; avatar: string; handle: string } | null>(null);
 
   // Modals
   const [isWalletOpen, setIsWalletOpen] = useState(false);
@@ -123,13 +124,22 @@ export function MainApp() {
           />
         )}
 
-        {activeTab === 'message' && <MessagesView />}
+        {activeTab === 'message' && (
+          <MessagesView
+            targetUser={selectedChatUser}
+            onClearTargetUser={() => setSelectedChatUser(null)}
+          />
+        )}
 
         {activeTab === 'profile' && (
           <ProfileView
             onOpenWallet={() => setIsWalletOpen(true)}
             onOpenCreatorDashboard={() => setActiveTab('live')}
             onOpenAuth={() => setIsAuthOpen(true)}
+            onOpenChatWithUser={(targetUser) => {
+              setSelectedChatUser(targetUser);
+              setActiveTab('message');
+            }}
           />
         )}
 

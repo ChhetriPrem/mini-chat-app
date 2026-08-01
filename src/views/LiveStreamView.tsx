@@ -23,7 +23,13 @@ import {
   ChevronDown,
   ChevronUp,
   Radio,
-  Sparkles
+  Sparkles,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Video,
+  VideoOff
 } from 'lucide-react';
 
 interface LiveStreamViewProps {
@@ -103,6 +109,7 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
   const [isGamePickerOpen, setIsGamePickerOpen] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [showStageGrid, setShowStageGrid] = useState(true);
+  const [isDeafened, setIsDeafened] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -113,9 +120,20 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
     };
   }, [room.id]);
 
+  // Effect to mute all audio elements in room when deafened
+  useEffect(() => {
+    const audioElements = document.querySelectorAll('audio, video');
+    audioElements.forEach((el) => {
+      if (el instanceof HTMLMediaElement) {
+        el.muted = isDeafened;
+      }
+    });
+  }, [isDeafened]);
+
   const isHost = room.host.id === user.id;
   const isFollowingHost = followingIds.has(room.host.id);
   const myRequestPending = stageRequests.some((sr) => sr.user.id === user.id);
+  const mySeat = guestSeats.find((g) => g.user.id === user.id);
 
   // Toggle user camera for WebRTC / live video broadcast
   const toggleCameraFeed = async () => {
@@ -385,6 +403,72 @@ export const LiveStreamView: React.FC<LiveStreamViewProps> = ({
                   {activeGame === 'rps' && <Check className="w-3.5 h-3.5" />}
                 </button>
               </div>
+            )}
+          </div>
+
+          {/* Middle Room Audio/Mic Controls (Mute Mic, Deafen, Camera) */}
+          <div className="flex items-center space-x-1.5 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full border border-white/15">
+            {/* Mic Control */}
+            <button
+              onClick={() => {
+                if (mySeat) {
+                  toggleMic(mySeat.seatNumber);
+                } else if (!isHost) {
+                  setIsStageQueueModalOpen(true);
+                }
+              }}
+              className={`p-2 rounded-full font-bold text-xs transition-all flex items-center justify-center ${
+                mySeat
+                  ? mySeat.isMicOn && !mySeat.isMutedByHost
+                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/30'
+                    : 'bg-red-500 text-white shadow-md shadow-red-500/30'
+                  : 'bg-white/10 text-slate-300 hover:text-white'
+              }`}
+              title={
+                mySeat
+                  ? mySeat.isMicOn && !mySeat.isMutedByHost
+                    ? 'Mute Microphone'
+                    : 'Unmute Microphone'
+                  : 'Request Stage to Speak'
+              }
+            >
+              {mySeat ? (
+                mySeat.isMicOn && !mySeat.isMutedByHost ? (
+                  <Mic className="w-3.5 h-3.5" />
+                ) : (
+                  <MicOff className="w-3.5 h-3.5" />
+                )
+              ) : (
+                <MicOff className="w-3.5 h-3.5 text-slate-400" />
+              )}
+            </button>
+
+            {/* Deafen / Audio Output Toggle */}
+            <button
+              onClick={() => setIsDeafened(!isDeafened)}
+              className={`p-2 rounded-full font-bold text-xs transition-all flex items-center justify-center ${
+                isDeafened
+                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
+                  : 'bg-white/10 text-slate-200 hover:bg-white/20'
+              }`}
+              title={isDeafened ? 'Unmute Room Speakers (Deafen OFF)' : 'Deafen Room Audio (Deafen ON)'}
+            >
+              {isDeafened ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            </button>
+
+            {/* Camera Toggle (If Video Room and sitting in stage seat) */}
+            {room.type !== 'audio' && mySeat && (
+              <button
+                onClick={() => toggleVideo(mySeat.seatNumber)}
+                className={`p-2 rounded-full font-bold text-xs transition-all flex items-center justify-center ${
+                  mySeat.isVideoOn
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'bg-slate-700 text-slate-300'
+                }`}
+                title={mySeat.isVideoOn ? 'Camera Off' : 'Camera On'}
+              >
+                {mySeat.isVideoOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+              </button>
             )}
           </div>
 

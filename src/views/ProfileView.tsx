@@ -19,21 +19,61 @@ import {
   Check,
   LogOut,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  MessageSquare,
+  Lock,
+  UserPlus
 } from 'lucide-react';
 
 interface ProfileViewProps {
   onOpenWallet: () => void;
   onOpenCreatorDashboard: () => void;
   onOpenAuth: () => void;
+  onOpenChatWithUser?: (user: { id: string; name: string; avatar: string; handle: string }) => void;
 }
+
+const FEATURED_FOLLOWED_PROFILES = [
+  {
+    id: 'usr_maya',
+    name: 'Maya Lin 🎤',
+    handle: 'maya_official',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
+    bio: 'Singer & Songwriter • Live Lounge Host',
+    isLive: true,
+  },
+  {
+    id: 'usr_priya',
+    name: 'Priya Sharma 💃',
+    handle: 'priya_dance',
+    avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=400',
+    bio: 'Choreographer & Fitness Streamer',
+    isLive: false,
+  },
+  {
+    id: 'usr_alex',
+    name: 'DJ Alex 🎧',
+    handle: 'djalex_beats',
+    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=400',
+    bio: 'Electronic Music Producer & DJ',
+    isLive: true,
+  },
+  {
+    id: 'usr_anya',
+    name: 'Anya Vance 🎮',
+    handle: 'anya_gamer',
+    avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&q=80&w=400',
+    bio: 'Pro Mobile Esports Streamer',
+    isLive: false,
+  },
+];
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenWallet,
   onOpenCreatorDashboard,
   onOpenAuth,
+  onOpenChatWithUser,
 }) => {
-  const { user, isAuthenticated, signOut } = useAuth();
+  const { user, isAuthenticated, signOut, followingIds, toggleFollow } = useAuth();
   const [copiedId, setCopiedId] = React.useState(false);
 
   const handleCopyId = () => {
@@ -145,6 +185,94 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <div>
           <span className="text-sm font-black text-white">{user.visitors.toLocaleString()}</span>
           <p className="text-[10px] text-gray-400 font-medium">Visitors</p>
+        </div>
+      </div>
+
+      {/* Profiles I Follow & Direct Encrypted Chat Section */}
+      <div className="bg-gradient-to-b from-purple-950/60 to-black/60 border border-purple-500/30 rounded-2xl p-3.5 space-y-3 shadow-xl">
+        <div className="flex items-center justify-between border-b border-white/10 pb-2">
+          <div className="flex items-center space-x-2">
+            <Users className="w-4 h-4 text-pink-400" />
+            <h3 className="text-xs font-black text-white">Profiles I Follow</h3>
+            <span className="bg-pink-500/20 text-pink-300 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-pink-500/30">
+              {FEATURED_FOLLOWED_PROFILES.length} Contacts
+            </span>
+          </div>
+
+          <div className="flex items-center space-x-1 text-[10px] font-bold text-emerald-400">
+            <Lock className="w-3 h-3" />
+            <span>Encrypted Chats</span>
+          </div>
+        </div>
+
+        {/* Followed Profiles List */}
+        <div className="space-y-2">
+          {FEATURED_FOLLOWED_PROFILES.map((prof) => {
+            const isFollowing = followingIds.has(prof.id);
+
+            return (
+              <div
+                key={prof.id}
+                className="flex items-center justify-between p-2 bg-white/5 hover:bg-white/10 rounded-xl border border-white/10 transition-all"
+              >
+                <div className="flex items-center space-x-2.5 min-w-0 flex-1 pr-2">
+                  <div className="relative shrink-0">
+                    <img
+                      src={prof.avatar}
+                      alt={prof.name}
+                      className="w-10 h-10 rounded-full object-cover ring-2 ring-pink-500/50"
+                    />
+                    {prof.isLive && (
+                      <span className="absolute -bottom-1 -right-1 bg-red-600 text-white text-[8px] font-black px-1 rounded-full border border-black animate-pulse">
+                        LIVE
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs font-black text-white truncate">{prof.name}</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400 truncate">@{prof.handle}</span>
+                    <span className="text-[9px] text-purple-300/80 truncate">{prof.bio}</span>
+                  </div>
+                </div>
+
+                {/* Right Action Buttons */}
+                <div className="flex items-center space-x-1.5 shrink-0">
+                  {/* Message Button */}
+                  <button
+                    onClick={() =>
+                      onOpenChatWithUser?.({
+                        id: prof.id,
+                        name: prof.name,
+                        avatar: prof.avatar,
+                        handle: prof.handle,
+                      })
+                    }
+                    className="px-2.5 py-1 bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:opacity-90 rounded-full text-[10px] font-black text-white flex items-center space-x-1 shadow-md hover:scale-105 active:scale-95 transition-all"
+                    title="Send Encrypted Direct Message"
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    <span>Message</span>
+                  </button>
+
+                  {/* Follow/Unfollow Toggle */}
+                  <button
+                    onClick={() => toggleFollow(prof.id)}
+                    className={`p-1.5 rounded-full text-[10px] font-bold transition-all ${
+                      isFollowing
+                        ? 'bg-white/10 text-slate-300 border border-white/15'
+                        : 'bg-indigo-600 text-white'
+                    }`}
+                    title={isFollowing ? 'Unfollow' : 'Follow'}
+                  >
+                    {isFollowing ? <Check className="w-3 h-3 text-emerald-400" /> : <UserPlus className="w-3 h-3" />}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
