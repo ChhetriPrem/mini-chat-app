@@ -206,6 +206,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <input
                 type="text"
                 required
+                autoComplete="username"
                 value={loginQuery}
                 onChange={(e) => setLoginQuery(e.target.value)}
                 placeholder="maya@vibelive.app or maya_official"
@@ -221,6 +222,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <input
                 type="password"
                 required
+                autoComplete="current-password"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
                 placeholder="••••••••"
@@ -294,6 +296,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <input
                 type="email"
                 required
+                autoComplete="email"
                 value={signupEmail}
                 onChange={(e) => setSignupEmail(e.target.value)}
                 placeholder="alex@vibelive.app"
@@ -306,6 +309,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               <input
                 type="password"
                 required
+                autoComplete="new-password"
                 value={signupPassword}
                 onChange={(e) => setSignupPassword(e.target.value)}
                 placeholder="At least 4 characters"

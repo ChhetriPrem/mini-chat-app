@@ -65,17 +65,21 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     let reconnectTimeout: any = null;
     let isComponentMounted = true;
+    let retryCount = 0;
 
     const connectWebSocket = () => {
       try {
+        const envUrl = (import.meta as any).env?.VITE_WS_URL;
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
+        const wsUrl = envUrl || `${protocol}//${window.location.host}`;
+
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
           if (!isComponentMounted) return;
           setIsConnected(true);
-          console.log('⚡ Connected to VibeLive WebSocket server');
+          retryCount = 0;
+          console.log('⚡ Connected to VibeLive Realtime Server:', wsUrl);
 
           // Auto re-join active room if connection restored
           if (activeRoomIdRef.current) {
@@ -148,20 +152,26 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
 
         ws.onerror = (_err) => {
-          // Silent catch to prevent unhandled console noise
+          // Suppress error log spam
         };
 
         ws.onclose = () => {
           if (!isComponentMounted) return;
           setIsConnected(false);
-          // Attempt auto-reconnect after 3 seconds
-          reconnectTimeout = setTimeout(connectWebSocket, 3000);
+
+          // Exponential backoff up to 8 retries (max 15s delay)
+          if (retryCount < 8) {
+            retryCount++;
+            const delay = Math.min(15000, 2000 * retryCount);
+            reconnectTimeout = setTimeout(connectWebSocket, delay);
+          }
         };
 
         socketRef.current = ws;
       } catch (err) {
-        if (isComponentMounted) {
-          reconnectTimeout = setTimeout(connectWebSocket, 3000);
+        if (isComponentMounted && retryCount < 8) {
+          retryCount++;
+          reconnectTimeout = setTimeout(connectWebSocket, 5000);
         }
       }
     };
