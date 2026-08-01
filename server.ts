@@ -85,6 +85,13 @@ wss.on('connection', (ws: WebSocket) => {
               content: `✨ ${conn.userName} entered the room!`,
               viewerCount: room.viewerCount,
             });
+
+            // Send current stage guests and stage requests immediately to newly joined viewer
+            ws.send(JSON.stringify({
+              type: 'guests-update',
+              guests: room.guests || [],
+              stageRequests: room.stageRequests || []
+            }));
           }
           break;
         }

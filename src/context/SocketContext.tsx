@@ -137,10 +137,13 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 break;
               }
 
-              case 'guests-update':
-                setGuestSeats(data.guests || []);
+              case 'guests-update': {
+                const guests = data.guests || [];
+                setGuestSeats(guests);
                 if (data.stageRequests) setStageRequests(data.stageRequests);
+                sfuManager.syncStageGuests(guests, userRef.current.id);
                 break;
+              }
 
               case 'rtc-signal':
                 sfuManager.handleRtcSignal(data);

@@ -162,6 +162,30 @@ class SFUMediaManager {
   }
 
   /**
+   * Called whenever stage guests list updates or viewer enters room.
+   * Checks if there are stage publishers we aren't connected to yet, and requests their streams.
+   */
+  public syncStageGuests(guests: any[], localUserId: string) {
+    if (!this.socketSend) return;
+
+    guests.forEach((guest) => {
+      if (guest.user?.id && guest.user.id !== localUserId) {
+        const existingPc = this.peerConnections.get(guest.user.id);
+        const existingStream = this.remoteStreams.get(guest.user.id);
+
+        if (!existingPc || !existingStream) {
+          this.socketSend!({
+            type: 'rtc-signal',
+            signalType: 'request-stream',
+            targetUserId: guest.user.id,
+            seatNumber: guest.seatNumber,
+          });
+        }
+      }
+    });
+  }
+
+  /**
    * Handle WebRTC P2P/SFU offer/answer/candidate messages received via WebSocket
    */
   public async handleRtcSignal(data: any) {
@@ -169,7 +193,20 @@ class SFUMediaManager {
 
     if (fromUserId === this.currentUserId) return;
 
-    if (signalType === 'announce-publisher') {
+    if (signalType === 'request-stream') {
+      // Remote viewer (fromUserId) requested our publisher stream!
+      if (this.socketSend && (this.localStream || this.currentSeatNumber !== null)) {
+        this.socketSend({
+          type: 'rtc-signal',
+          signalType: 'announce-publisher',
+          targetUserId: fromUserId,
+          seatNumber: this.currentSeatNumber || seatNumber || 1,
+          userId: this.currentUserId,
+          hasVideo: this.localStream ? this.localStream.getVideoTracks().length > 0 : true,
+          hasAudio: this.localStream ? this.localStream.getAudioTracks().length > 0 : true,
+        });
+      }
+    } else if (signalType === 'announce-publisher') {
       // Create WebRTC PeerConnection as subscriber to receive publisher stream
       await this.createPeerConnection(fromUserId, seatNumber, true);
     } else if (signalType === 'offer') {
