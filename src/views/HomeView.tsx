@@ -33,10 +33,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   useEffect(() => {
     fetchStreams();
+    const interval = setInterval(() => {
+      fetchStreams(true);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [activeHomeTab, selectedCountry, selectedCategory]);
 
-  const fetchStreams = async () => {
-    setIsLoading(true);
+  const fetchStreams = async (isBackground = false) => {
+    if (!isBackground) setIsLoading(true);
     try {
       const query = new URLSearchParams();
       if (activeHomeTab) query.set('filter', activeHomeTab);
@@ -51,7 +55,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
     } catch (e) {
       console.error('Failed to load streams:', e);
     } finally {
-      setIsLoading(false);
+      if (!isBackground) setIsLoading(false);
     }
   };
 
