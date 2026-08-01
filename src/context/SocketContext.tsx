@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { ChatMessage, VirtualGift, RoomGuest } from '../types';
+import { sfuManager, PeerMediaStream } from '../lib/sfuManager';
 
 interface SocketContextType {
   isConnected: boolean;
@@ -28,6 +29,7 @@ interface SocketContextType {
   currentViewerCount: number;
   guestSeats: RoomGuest[];
   stageRequests: any[];
+  remoteMediaStreams: Map<string, PeerMediaStream>;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -48,6 +50,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [currentViewerCount, setCurrentViewerCount] = useState<number>(109);
   const [guestSeats, setGuestSeats] = useState<RoomGuest[]>([]);
   const [stageRequests, setStageRequests] = useState<any[]>([]);
+  const [remoteMediaStreams, setRemoteMediaStreams] = useState<Map<string, PeerMediaStream>>(new Map());
+
+  useEffect(() => {
+    sfuManager.initSocket((payload) => safeSend(payload), user.id);
+    const unsubscribe = sfuManager.subscribeStreams((map) => {
+      setRemoteMediaStreams(map);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [user.id]);
 
   useEffect(() => {
     let reconnectTimeout: any = null;
@@ -124,6 +137,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 setGuestSeats(data.guests || []);
                 if (data.stageRequests) setStageRequests(data.stageRequests);
                 break;
+
+              case 'rtc-signal':
+                sfuManager.handleRtcSignal(data);
+                break;
             }
           } catch (e) {
             console.error('Error parsing WS message:', e);
@@ -191,6 +208,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         roomId: activeRoomId,
       });
     }
+    sfuManager.unpublishSeatMedia();
     setActiveRoomId(null);
     activeRoomIdRef.current = null;
   };
@@ -222,7 +240,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  const takeSeat = (seatNumber: number, slotType: 'video' | 'audio' = 'video') => {
+  const takeSeat = async (seatNumber: number, slotType: 'video' | 'audio' = 'video') => {
     if (!activeRoomId) return;
     safeSend({
       type: 'seat-action',
@@ -231,6 +249,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       slotType,
       user,
     });
+    // Publish SFU / WebRTC camera and mic stream tracks
+    await sfuManager.publishSeatMedia(seatNumber, slotType);
   };
 
   const leaveSeat = (seatNumber: number) => {
@@ -240,10 +260,16 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       action: 'leave',
       seatNumber,
     });
+    // Stop local camera and mic track publication
+    sfuManager.unpublishSeatMedia();
   };
 
   const toggleMic = (seatNumber: number) => {
     if (!activeRoomId) return;
+    const currentGuest = guestSeats.find((g) => g.seatNumber === seatNumber && g.user.id === user.id);
+    const newMicState = currentGuest ? !currentGuest.isMicOn : false;
+    sfuManager.setMicEnabled(newMicState);
+
     safeSend({
       type: 'seat-action',
       action: 'toggle-mic',
@@ -253,6 +279,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const toggleVideo = (seatNumber: number) => {
     if (!activeRoomId) return;
+    const currentGuest = guestSeats.find((g) => g.seatNumber === seatNumber && g.user.id === user.id);
+    const newVideoState = currentGuest ? !currentGuest.isVideoOn : false;
+    sfuManager.setVideoEnabled(newVideoState);
+
     safeSend({
       type: 'seat-action',
       action: 'toggle-video',
@@ -262,6 +292,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const kickGuest = (seatNumber: number) => {
     if (!activeRoomId) return;
+    const guestToKick = guestSeats.find((g) => g.seatNumber === seatNumber);
+    if (guestToKick?.user.id === user.id) {
+      sfuManager.unpublishSeatMedia();
+    }
+
     safeSend({
       type: 'seat-action',
       action: 'kick',
@@ -271,6 +306,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const hostToggleMute = (seatNumber: number) => {
     if (!activeRoomId) return;
+    const targetGuest = guestSeats.find((g) => g.seatNumber === seatNumber);
+    if (targetGuest?.user.id === user.id) {
+      sfuManager.setMicEnabled(!targetGuest.isMutedByHost);
+    }
+
     safeSend({
       type: 'seat-action',
       action: 'host-toggle-mute',
@@ -349,6 +389,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         currentViewerCount,
         guestSeats,
         stageRequests,
+        remoteMediaStreams,
       }}
     >
       {children}

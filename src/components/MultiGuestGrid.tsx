@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { RoomGuest, User } from '../types';
 import { Mic, MicOff, Video, VideoOff, Plus, Volume2, ShieldAlert, UserX, VolumeX, Hand, X, Camera } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 
 interface MultiGuestGridProps {
   guests: RoomGuest[];
@@ -15,6 +16,29 @@ interface MultiGuestGridProps {
   onRequestSlot?: (slotType: 'video' | 'audio') => void;
   isHost?: boolean;
 }
+
+const RemoteMediaStreamTile: React.FC<{
+  stream: MediaStream;
+  isVideoOn: boolean;
+  isMicOn: boolean;
+}> = ({ stream, isVideoOn }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream;
+    }
+  }, [stream, isVideoOn]);
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      className="absolute inset-0 w-full h-full object-cover rounded-2xl z-0"
+    />
+  );
+};
 
 const LocalMediaStreamTile: React.FC<{
   isMicOn: boolean;
@@ -114,6 +138,7 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
   isHost = false,
 }) => {
   const { user } = useAuth();
+  const { remoteMediaStreams } = useSocket();
   const seats = Array.from({ length: 10 }, (_, i) => i + 1);
   const [activeSlotMenu, setActiveSlotMenu] = useState<number | null>(null);
   const [selectedSeatChoice, setSelectedSeatChoice] = useState<number | null>(null);
@@ -189,6 +214,12 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
                   onSpeakingChange={(speaking) => {
                     setLocalSpeakingState((prev) => ({ ...prev, [seatNum]: speaking }));
                   }}
+                />
+              ) : remoteMediaStreams.has(guest.user.id) ? (
+                <RemoteMediaStreamTile
+                  stream={remoteMediaStreams.get(guest.user.id)!.stream}
+                  isVideoOn={guest.isVideoOn}
+                  isMicOn={guest.isMicOn && !guest.isMutedByHost}
                 />
               ) : guest.isVideoOn ? (
                 <div className="absolute inset-0 z-0 bg-gradient-to-b from-indigo-950 to-slate-900 opacity-60 flex items-center justify-center">

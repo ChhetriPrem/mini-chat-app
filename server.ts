@@ -394,6 +394,22 @@ wss.on('connection', (ws: WebSocket) => {
           });
           break;
         }
+
+        case 'rtc-signal': {
+          if (!conn.roomId) break;
+          if (data.targetUserId) {
+            // Forward to specific target user
+            for (const client of activeClients) {
+              if (client.userId === data.targetUserId && client.ws.readyState === WebSocket.OPEN) {
+                client.ws.send(JSON.stringify({ ...data, fromUserId: conn.userId }));
+              }
+            }
+          } else {
+            // Broadcast to all other clients in room
+            broadcastToRoom(conn.roomId, { ...data, fromUserId: conn.userId }, ws);
+          }
+          break;
+        }
       }
     } catch (err) {
       console.error('WebSocket Error:', err);
