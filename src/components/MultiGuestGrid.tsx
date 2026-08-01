@@ -176,7 +176,7 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
       </div>
 
       {/* 10 Slots Grid (5 columns x 2 rows) */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 auto-rows-fr">
         {seats.map((seatNum) => {
           const guest = guests.find((g) => g.seatNumber === seatNum);
           const isMySeat = guest?.user.id === user.id;
@@ -200,10 +200,10 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
           return (
             <div
               key={seatNum}
-              className={`relative group flex flex-col items-center justify-between aspect-square rounded-2xl p-1 border overflow-hidden transition-all ${
+              className={`relative group flex flex-col items-center justify-between col-span-2 row-span-2 aspect-square rounded-2xl border overflow-hidden transition-all duration-300 shadow-xl ${
                 isSpeakingNow
-                  ? 'bg-gradient-to-b from-indigo-950/90 to-purple-950/90 border-pink-500 ring-2 ring-pink-500/60 shadow-lg shadow-pink-500/40'
-                  : 'bg-white/5 border-white/10'
+                  ? 'bg-gradient-to-b from-indigo-950/90 to-purple-950/90 border-pink-500 ring-2 ring-pink-500/60 shadow-pink-500/40'
+                  : 'bg-slate-950 border-white/15'
               }`}
             >
               {/* Webcam Video & Microphone Media Stream */}
@@ -223,130 +223,150 @@ export const MultiGuestGrid: React.FC<MultiGuestGridProps> = ({
                 />
               ) : guest.isVideoOn ? (
                 <div className="absolute inset-0 z-0 bg-gradient-to-b from-indigo-950 to-slate-900 opacity-60 flex items-center justify-center">
-                  <Camera className="w-6 h-6 text-indigo-400/30 animate-pulse" />
+                  <Camera className="w-8 h-8 text-indigo-400/30 animate-pulse" />
                   <div className="absolute inset-0 bg-black/30" />
                 </div>
-              ) : null}
+              ) : (
+                <div className="absolute inset-0 z-0 flex items-center justify-center bg-indigo-950/40">
+                  <img src={guest.user.avatar} alt="" className="w-16 h-16 rounded-full object-cover opacity-40 blur-sm scale-125" />
+                </div>
+              )}
 
-              {/* Slot Number & Leave Seat Button */}
-              <div className="relative z-10 w-full flex items-center justify-between px-1 pt-0.5">
-                <span className="px-1 py-0.2 bg-black/70 backdrop-blur-sm rounded text-[8px] font-black text-indigo-300 border border-white/10">
-                  #{seatNum}
-                </span>
+              {/* OVERLAY: Only shows text / controls when hovered over */}
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-between p-2.5 bg-gradient-to-t from-black/80 via-black/30 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
+                {/* Header: Slot # & Leave Stage Button */}
+                <div className="w-full flex items-center justify-between">
+                  <span className="px-1.5 py-0.5 bg-black/80 backdrop-blur-md rounded text-[9px] font-black text-indigo-300 border border-white/15 shadow">
+                    Slot #{seatNum}
+                  </span>
 
-                {isMySeat && (
+                  {isMySeat && (
+                    <button
+                      onClick={() => onLeaveSeat(seatNum)}
+                      className="p-1 bg-red-600 hover:bg-red-500 text-white rounded-full text-[9px] font-bold shadow-lg transition-transform hover:scale-110 flex items-center space-x-1 px-2"
+                      title="Leave Stage Slot"
+                    >
+                      <X className="w-3 h-3" />
+                      <span className="text-[9px]">Leave</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Center: Guest Avatar / Live Badge */}
+                <div className="my-auto flex flex-col items-center space-y-1">
+                  {!guest.isVideoOn ? (
+                    <div className="relative">
+                      <img
+                        src={guest.user.avatar}
+                        alt={guest.user.name}
+                        className={`w-12 h-12 rounded-full object-cover ring-2 ${
+                          isSpeakingNow ? 'ring-pink-400 scale-105 shadow-lg shadow-pink-500/50' : 'ring-indigo-500/60'
+                        }`}
+                      />
+                      {isSpeakingNow && (
+                        <span className="absolute -bottom-1 -right-1 p-1 bg-pink-500 text-white rounded-full text-[9px] shadow">
+                          <Volume2 className="w-3 h-3 animate-pulse" />
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-[10px] font-black px-2 py-0.5 bg-indigo-600/90 backdrop-blur-md rounded-full text-white shadow-lg border border-indigo-400/30">
+                      LIVE STREAM
+                    </span>
+                  )}
+                </div>
+
+                {/* Footer: User Info & Controls */}
+                <div className="w-full flex flex-col items-center space-y-1">
+                  <div className="flex items-center space-x-1 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full border border-white/10">
+                    <span className="text-[10px] font-extrabold text-white truncate max-w-[120px]">
+                      {guest.user.name}
+                    </span>
+                    {isSpeakingNow && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-ping" />
+                    )}
+                  </div>
+
+                  {/* Controls for User on Stage */}
+                  {isMySeat ? (
+                    <div className="flex items-center space-x-2 pt-0.5">
+                      <button
+                        onClick={() => onToggleMic(seatNum)}
+                        className={`p-1.5 rounded-full text-[9px] font-bold shadow-md transition-all ${
+                          guest.isMicOn && !guest.isMutedByHost ? 'bg-emerald-500 hover:bg-emerald-400 text-white' : 'bg-red-500 hover:bg-red-400 text-white'
+                        }`}
+                        title={guest.isMicOn ? 'Mute Mic' : 'Unmute Mic'}
+                      >
+                        {guest.isMicOn && !guest.isMutedByHost ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+                      </button>
+
+                      <button
+                        onClick={() => onToggleVideo(seatNum)}
+                        className={`p-1.5 rounded-full text-[9px] font-bold shadow-md transition-all ${
+                          guest.isVideoOn ? 'bg-indigo-500 hover:bg-indigo-400 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                        }`}
+                        title={guest.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'}
+                      >
+                        {guest.isVideoOn ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1 pt-0.5">
+                      {guest.isMutedByHost ? (
+                        <span className="text-[8px] text-red-300 font-extrabold bg-red-950/90 border border-red-500/50 px-1.5 py-0.5 rounded">
+                          MUTED BY HOST
+                        </span>
+                      ) : guest.isMicOn ? (
+                        <span className="flex items-center space-x-1 text-[8px] font-extrabold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-1.5 py-0.5 rounded">
+                          <Mic className="w-3 h-3" />
+                          <span>MIC ON</span>
+                        </span>
+                      ) : (
+                        <span className="flex items-center space-x-1 text-[8px] font-extrabold text-red-400 bg-red-950/80 border border-red-500/40 px-1.5 py-0.5 rounded">
+                          <MicOff className="w-3 h-3" />
+                          <span>MIC OFF</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Host Gear Settings Icon */}
+                {isHost && !isMySeat && (
                   <button
-                    onClick={() => onLeaveSeat(seatNum)}
-                    className="p-1 bg-red-600/90 hover:bg-red-600 text-white rounded-full text-[8px] font-bold shadow transition-transform hover:scale-110"
-                    title="Leave Stage Slot"
+                    onClick={() => setActiveSlotMenu(activeSlotMenu === seatNum ? null : seatNum)}
+                    className="absolute top-2 right-2 z-20 p-1 bg-black/80 hover:bg-black text-white rounded-lg text-[10px] border border-white/20 shadow"
+                    title="Host Moderation"
                   >
-                    <X className="w-2.5 h-2.5" />
+                    ⚙️
                   </button>
                 )}
               </div>
 
-              {/* Guest Avatar or Live Badge */}
-              <div className="relative z-10 my-0.5">
-                {!guest.isVideoOn ? (
-                  <div className="relative">
-                    <img
-                      src={guest.user.avatar}
-                      alt={guest.user.name}
-                      className={`w-8 h-8 rounded-full object-cover ring-2 ${
-                        isSpeakingNow ? 'ring-pink-400 scale-105' : 'ring-indigo-500/40'
-                      }`}
-                    />
-                    {isSpeakingNow && (
-                      <span className="absolute -bottom-1 -right-1 p-0.5 bg-pink-500 text-white rounded-full text-[8px]">
-                        <Volume2 className="w-2.5 h-2.5 animate-pulse" />
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-[10px] font-black px-1.5 py-0.5 bg-indigo-600/80 backdrop-blur-md rounded-full text-white shadow">
-                    LIVE
-                  </span>
-                )}
-              </div>
-
-              {/* Guest Name & Controls Footer */}
-              <div className="relative z-10 w-full flex flex-col items-center">
-                <span className="text-[9px] font-bold text-white truncate max-w-full leading-none mb-1 drop-shadow">
-                  {guest.user.name}
-                </span>
-
-                {/* Controls for User on Stage */}
-                {isMySeat ? (
-                  <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => onToggleMic(seatNum)}
-                      className={`p-1 rounded-full text-[8px] font-bold transition-all ${
-                        guest.isMicOn && !guest.isMutedByHost ? 'bg-emerald-500 text-white' : 'bg-red-500/80 text-white'
-                      }`}
-                      title={guest.isMicOn ? 'Mute Mic' : 'Unmute Mic'}
-                    >
-                      {guest.isMicOn && !guest.isMutedByHost ? <Mic className="w-2.5 h-2.5" /> : <MicOff className="w-2.5 h-2.5" />}
-                    </button>
-
-                    <button
-                      onClick={() => onToggleVideo(seatNum)}
-                      className={`p-1 rounded-full text-[8px] font-bold transition-all ${
-                        guest.isVideoOn ? 'bg-indigo-500 text-white' : 'bg-slate-700 text-slate-300'
-                      }`}
-                      title={guest.isVideoOn ? 'Turn Off Camera' : 'Turn On Camera'}
-                    >
-                      {guest.isVideoOn ? <Video className="w-2.5 h-2.5" /> : <VideoOff className="w-2.5 h-2.5" />}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-0.5">
-                    {guest.isMutedByHost ? (
-                      <span className="text-[7px] text-red-400 font-extrabold bg-red-950/90 border border-red-500/40 px-1 rounded">
-                        MUTED
-                      </span>
-                    ) : guest.isMicOn ? (
-                      <Mic className="w-2.5 h-2.5 text-emerald-400" />
-                    ) : (
-                      <MicOff className="w-2.5 h-2.5 text-red-400" />
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Host Gear Settings Icon */}
-              {isHost && !isMySeat && (
-                <button
-                  onClick={() => setActiveSlotMenu(activeSlotMenu === seatNum ? null : seatNum)}
-                  className="absolute bottom-1 right-1 z-20 p-0.5 bg-black/60 hover:bg-black/90 text-white rounded text-[8px]"
-                  title="Host Moderation"
-                >
-                  ⚙️
-                </button>
-              )}
-
               {/* Host Quick Action Dropdown Modal */}
               {isHost && activeSlotMenu === seatNum && (
-                <div className="absolute inset-0 z-30 bg-black/95 backdrop-blur-md rounded-2xl p-1 flex flex-col items-center justify-around text-[9px]">
+                <div className="absolute inset-0 z-30 bg-black/95 backdrop-blur-md rounded-2xl p-3 flex flex-col items-center justify-center space-y-2 text-xs">
+                  <span className="font-extrabold text-white text-[10px]">Moderate {guest.user.name}</span>
                   <button
                     onClick={() => {
                       onHostToggleMute?.(seatNum);
                       setActiveSlotMenu(null);
                     }}
-                    className="w-full py-0.5 bg-yellow-500/20 text-yellow-300 font-bold rounded border border-yellow-500/40"
+                    className="w-full py-1 bg-yellow-500/20 text-yellow-300 font-bold rounded-lg border border-yellow-500/40 hover:bg-yellow-500/30"
                   >
-                    {guest.isMutedByHost ? 'Unmute' : 'Mute Mic'}
+                    {guest.isMutedByHost ? 'Unmute Mic' : 'Mute Guest Mic'}
                   </button>
                   <button
                     onClick={() => {
                       onKickGuest?.(seatNum);
                       setActiveSlotMenu(null);
                     }}
-                    className="w-full py-0.5 bg-red-500/20 text-red-300 font-bold rounded border border-red-500/40"
+                    className="w-full py-1 bg-red-500/20 text-red-300 font-bold rounded-lg border border-red-500/40 hover:bg-red-500/30"
                   >
-                    Kick
+                    Kick from Stage
                   </button>
-                  <button onClick={() => setActiveSlotMenu(null)} className="text-slate-400 font-bold">
-                    Close
+                  <button onClick={() => setActiveSlotMenu(null)} className="text-slate-400 text-[10px] font-bold pt-1">
+                    Cancel
                   </button>
                 </div>
               )}
